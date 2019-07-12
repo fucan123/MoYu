@@ -1,0 +1,128 @@
+#include "Item.h"
+#include "Game.h"
+#include <stdio.h>
+
+// ...
+Item::Item(Game * p)
+{
+	m_pGame = p;
+}
+
+// 读取自己拥有物品
+DWORD Item::ReadSelfItems(GameSelfItem ** save, DWORD save_length)
+{
+	DWORD* pItem = NULL, dwCount = 0;
+	__asm
+	{
+		mov eax, dword ptr ds : [0xF03500]
+		mov eax, [eax]
+		mov eax, [eax + 0x21DC]     // [eax+0x10]为背包物品地址 是一个数组 长度为[eax+0x30]
+		mov edx, [eax + 0x10]       // [eax+0x10]物品地址指针
+		mov dword ptr[pItem], edx
+		mov edx, [eax + 0x30]       // 物品数量
+		mov dword ptr[dwCount], edx
+	}
+
+	if (!pItem)
+		return 0;
+	//printf("pItem:%08X dwCount:%d\n", pItem, dwCount);
+
+	for (DWORD i = 0; i < dwCount; i++, pItem++) {
+		if (i >= save_length)
+			break;
+		save[i] = (GameSelfItem*)*pItem;
+	}
+
+	return dwCount;
+}
+
+// 根据物品类型获取物品ID
+DWORD Item::GetSelfItemIdByType(ITEM_TYPE type)
+{
+	// 03C5F19E
+	DWORD dwId = 0;
+	GameSelfItem* items[120];
+	DWORD dwCount = ReadSelfItems(items, 120);
+	for (DWORD i = 0; i < dwCount; i++) {
+		if (items[i] && items[i]->Type == type) {
+			dwId = items[i]->Id;
+			break;
+		}
+
+	}
+	return dwId;
+}
+
+// 根据物品类型获取物品数量
+DWORD Item::GetSelfItemCountByType(ITEM_TYPE type)
+{
+	DWORD dwNum = 0;
+	GameSelfItem* items[120];
+	DWORD dwCount = ReadSelfItems(items, 120);
+	for (DWORD i = 0; i < dwCount; i++) {
+		if (items[i] && items[i]->Type == type)
+			dwNum++;
+	}
+	return dwNum;
+}
+
+
+// 读取地面物品
+DWORD Item::ReadGroundItems(GameGroundItem** save, DWORD save_length)
+{
+	if (!m_pGame->m_GameAddr.ItemPtr)
+		return 0;
+
+	DWORD* pItemsBegin = PtrVToDwordPtr(m_pGame->m_GameAddr.ItemPtr);   // 地面物品列表指针首地址
+	DWORD* pItemsEnd = PtrVToDwordPtr(m_pGame->m_GameAddr.ItemPtr + 4); // 地面物品列表指针末地址
+	DWORD  dwCount = pItemsEnd - pItemsBegin;
+	if (dwCount == 0 || dwCount > 128)
+		return 0;
+
+	dwCount = 0;
+	//printf("\n---------------------------\n");
+	//printf("[%d]地面物品数量：%d\n", (int)time(nullptr), dwCount);
+	for (DWORD* p = pItemsBegin; p < pItemsEnd; p++) {
+		GameGroundItem* pItem = (GameGroundItem*)(*p);
+		if (!pItem || pItem->Id == 0xFFFFFFFF)
+			continue;
+
+		save[dwCount] = pItem;
+		if (++dwCount == save_length)
+			break;
+		//printf("[%d]物品ID:%08X 物品类型:%08X X:%08X(%d) Y:%08X(%d)\n", (int)time(nullptr), pItem->Id, pItem->Type, pItem->X, pItem->X, pItem->Y, pItem->Y);
+
+		//Call_PickUpItem(pItem);
+	}
+	//printf("\n---------------------------\n");
+
+	return dwCount;
+}
+
+// 地面是否还有此物品
+bool Item::GroundHasItem(DWORD item_id)
+{
+	GameGroundItem* pItems[32];
+	DWORD dwCount = ReadGroundItems(pItems, sizeof(pItems) / sizeof(GameGroundItem*));
+	for (DWORD i = 0; i < dwCount; i++) {
+		if (pItems[i]->Id == item_id)
+			return true;
+	}
+	return false;
+}
+
+// 捡物品
+void Item::PickUpItem()
+{
+	try {
+		GameGroundItem* pItems[32];
+		DWORD dwCount = ReadGroundItems(pItems, sizeof(pItems) / sizeof(GameGroundItem*));
+		for (DWORD i = 0; i < dwCount; i++) {
+			Game::Call_PickUpItem(pItems[i]);
+			break;
+		}
+	}
+	catch (void*) {
+
+	}
+}
