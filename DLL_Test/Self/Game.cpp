@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "Item.h"
+#include "Talk.h"
 #include <My/Common/mystring.h>
 #include <My/Common/func.h>
 #include <My/Driver/KbdMou.h>
@@ -27,7 +28,8 @@ Game::Game()
 	m_pGuaiWus = new GameGuaiWu*[GUAIWU_MAX];
 	m_pReadBuffer = new BYTE[1024 * 1024 * 10];
 
-	m_pItem = new Item(this);
+	m_pItem = new Item(this); // 物品类
+	m_pTalk = new Talk(this); // 对话类
 }
 
 // >>>
@@ -37,6 +39,7 @@ Game::~Game()
 	delete m_pReadBuffer;
 
 	delete m_pItem;
+	delete m_pTalk;
 }
 
 // 初始化
@@ -542,6 +545,12 @@ bool Game::CallIsComplete()
 			printf("x:%d y:%d  -  mvx:%d mvy:%d\n", x, y, m_CallStep.MvX, m_CallStep.MvY);
 			result = (x == m_CallStep.MvX) && (y == m_CallStep.MvY);
 		}
+		break;
+	case CST_NPC:
+		result = Game::self->m_pTalk->NPCTalkStatus();
+		break;
+	case CST_NPCTALK:
+		result = Game::self->m_pTalk->NPCTalkStatus();
 		break;
 	case CST_PICKUP:
 		result = !Game::self->m_pItem->GroundHasItem(m_CallStep.ItemId);

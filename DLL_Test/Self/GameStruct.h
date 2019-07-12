@@ -18,7 +18,8 @@
 #define ADDR_MOV_STA_OFFSET 0x4A7A60      // 人物移动状态在模块里面偏移[MOD_sound]
 #define ADDR_TALKBOX_PTR    0x10A97C8     // 对话框打开状态地址指针[Soul.exe+CA97C8]
 // mov eax,[edi+00005394] << EDI=05B7D020
-#define ADDR_TALKBOX_REAL   ((*(DWORD*)(ADDR_TALKBOX_PTR))+0x5394)
+#define ADDR_TALKBOX_REAL   (PtrToDword(ADDR_TALKBOX_PTR)+0x5394)
+#define CHD_TALBOX_STATUS   0x00         // 0-对话框没有打开 1-打开
 #define CHD_TALBOX_STRING   0x1144       // 对话框内容相对于对话框偏移
 
 #define GUAIWU_MAX          100          // 最大读取怪物数量

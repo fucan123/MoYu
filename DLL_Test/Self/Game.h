@@ -3,6 +3,7 @@
 
 class GameProc;
 class Item;
+class Talk;
 
 class Game
 {
@@ -91,6 +92,8 @@ public:
 	GameProc* m_pGameProc = nullptr;
 	// 物品类
 	Item*     m_pItem;
+	// 对话类
+	Talk*     m_pTalk;
 
 	// 自身
 	static Game* self;

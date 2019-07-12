@@ -42,6 +42,9 @@
     <ClInclude Include="Self\Item.h">
       <Filter>Self</Filter>
     </ClInclude>
+    <ClInclude Include="Self\Talk.h">
+      <Filter>Self</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -60,6 +63,9 @@
       <Filter>Self</Filter>
     </ClCompile>
     <ClCompile Include="Self\Item.cpp">
+      <Filter>Self</Filter>
+    </ClCompile>
+    <ClCompile Include="Self\Talk.cpp">
       <Filter>Self</Filter>
     </ClCompile>
   </ItemGroup>
