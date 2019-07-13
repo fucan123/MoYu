@@ -1,11 +1,13 @@
-#include "Game.h"
-#include "Item.h"
-#include "Talk.h"
 #include <My/Common/mystring.h>
 #include <My/Common/func.h>
 #include <My/Driver/KbdMou.h>
 #include <stdio.h>
 #include <time.h>
+
+#include "Game.h"
+#include "Item.h"
+#include "Talk.h"
+#include "Move.h"
 
 GameModAddr Game::m_GameModAddr; // 游戏模块地址
 GameAddr    Game::m_GameAddr;    // 游戏一些数据地址
@@ -30,6 +32,7 @@ Game::Game()
 
 	m_pItem = new Item(this); // 物品类
 	m_pTalk = new Talk(this); // 对话类
+	m_pMove = new Move(this); // 移动类
 }
 
 // >>>
@@ -40,6 +43,7 @@ Game::~Game()
 
 	delete m_pItem;
 	delete m_pTalk;
+	delete m_pMove;
 }
 
 // 初始化
@@ -99,6 +103,21 @@ bool Game::FindCoorAddr()
 	m_GameAddr.CoorX = m_GameModAddr.Mod3DRole + ADDR_COOR_X_OFFSET;
 	m_GameAddr.CoorY = m_GameModAddr.Mod3DRole + ADDR_COOR_Y_OFFSET;
 	return true;
+}
+
+// 获取移动状态地址
+bool Game::FindMoveStaAddr()
+{
+	DWORD codes[] = {
+		0x000064, 0x000064, 0x000000, 0x000000, 0x0FD308, 0x000000, 0x000000, 0x000001,
+		0x0F0084, 0x000000, 0x000000, 0x000000, 0x0000FF, 0x021084, 0x06B6C1, 0x000000,
+	};
+	DWORD address;
+	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
+		m_GameAddr.MovSta = address + 0xB0;
+		INLOGVARN(32, "移动状态地址:%08X", m_GameAddr.MovSta);
+		printf("移动状态地址：%08X\n", m_GameAddr.MovSta);
+	}
 }
 
 // 获取生命地址
@@ -273,7 +292,7 @@ DWORD Game::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_lengt
 }
 
 // 读取坐标
-bool Game::ReadCoor(int& x, int& y)
+bool Game::ReadCoor(DWORD& x, DWORD& y)
 {
 	if (!m_GameAddr.CoorX || !m_GameAddr.CoorY)
 		return false;
@@ -323,7 +342,7 @@ bool Game::ReadGuaiWu()
 	DWORD count = SearchCode(codes, sizeof(codes) / sizeof(DWORD), address, 16);
 	
 	if (count) {
-		int x = 0, y = 0;
+		DWORD x = 0, y = 0;
 		ReadCoor(x, y);
 		//printf("\n---------------------------\n");
 		printf("[%d]怪物数量：%d(%d)\n", (int)time(nullptr), count, m_dwGuaiWuCount + count);
@@ -385,7 +404,7 @@ void Game::AttackGuaiWu()
 	printf("怪物总数量:%d\n", m_dwGuaiWuCount);
 
 	DWORD m = m_dwGuaiWuCount;// > 3 ? 3 : m_dwGuaiWuCount;
-	int x = 0, y = 0;
+	DWORD x = 0, y = 0;
 	ReadCoor(x, y);
 	DWORD num = 0, near_index = 0xff, near_dist = 0;
 	for (DWORD i = 0; i < m; i++) {
@@ -480,6 +499,9 @@ bool Game::ReadGameMemory(bool read_guaiwu)
 					goto _c;
 				}
 
+				if (!m_GameAddr.MovSta) {
+					FindMoveStaAddr();
+				}
 				if (!m_GameAddr.Life) {
 					FindLifeAddr();
 				}
@@ -540,10 +562,10 @@ bool Game::CallIsComplete()
 	switch (m_CallStep.Type)
 	{
 	case CST_RUN:
-		int x, y;
-		if (Game::self->ReadCoor(x, y)) {
-			printf("x:%d y:%d  -  mvx:%d mvy:%d\n", x, y, m_CallStep.MvX, m_CallStep.MvY);
-			result = (x == m_CallStep.MvX) && (y == m_CallStep.MvY);
+		if (Game::self->m_pMove->IsMoveEnd()     // 达到指定位置
+			|| !Game::self->m_pMove->IsMove()) { // 没有移动了
+			result = true;
+			Game::self->m_pMove->ClearMove();
 		}
 		break;
 	case CST_NPC:
@@ -588,6 +610,7 @@ void Game::Call_Run(int x, int y)
 		return;
 
 	SetCallStep(CST_RUN, x, y);
+	Game::self->m_pMove->SetMove(x, y);
 	DWORD func = m_GameCall.Run;
 	__asm {
 		mov ecx, dword ptr ds : [0xF03500]

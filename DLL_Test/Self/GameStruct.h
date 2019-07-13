@@ -73,8 +73,15 @@ typedef struct game_wnd
 // 游戏物品类型
 enum ITEM_TYPE
 {
-	神恩治疗药水 = 0x000B783C,
-	魔魂晶石_赠 = 0x000FD35E,
+	速效治疗包        =  0x000B5593,
+	神恩治疗药水      = 0x000B783C,
+	速效治疗药水      = 0x000F6982, // +2500生命值
+	速效圣兽灵药      = 0x000F943E, // 复活宝宝的
+	三十星神兽碎片加1  = 0x000F90E4,
+	三十星神兽碎片加2  = 0x000F90E5,
+	魔魂晶石          = 0x000FD35E,
+	灵魂晶石          = 0x000FD368,
+	幻魔晶石          = 0x000FD372,
 };
 
 // 游戏自己拥有物品信息
@@ -160,6 +167,10 @@ enum SearchCodeType
 // 技能
 enum MagicType
 {
-	凤珠   = 0xBB8,
-	电击术 = 0xBBE,
+	星陨     = 0x839,  // Call_Magic(., x, y)
+	影魂契约 = 0x91F, // Call_Magic(., guaiwu_id) 0x0F8EDE不知道是不是地面 此技能guaiwu_id固定这个参数
+	诸神裁决 = 0x983, // Call_Magic(., x, y)
+	虚无空间 = 0x9C9, // Call_Magic(., x, y)
+	凤珠    = 0xBB8, // Call_Magic(., x, y)
+	电击术  = 0xBBE, // Call_Magic(., guaiwu_id)
 };

@@ -4,6 +4,7 @@
 class GameProc;
 class Item;
 class Talk;
+class Move;
 
 class Game
 {
@@ -27,7 +28,7 @@ public:
 	// 获取模块地址
 	DWORD FindModAddr(LPCWSTR name);
 	// 读取坐标
-	bool ReadCoor(int& x, int& y);
+	bool ReadCoor(DWORD& x, DWORD& y);
 	// 读取生命值
 	bool ReadLife(int& life, int& life_max);
 	// 读取药包数量
@@ -42,6 +43,8 @@ public:
 	void AttackGuaiWu();
 	// 获取坐标地址
 	bool FindCoorAddr();
+	// 获取移动状态地址
+	bool FindMoveStaAddr();
 	// 获取生命地址
 	bool FindLifeAddr();
 	// 获取快捷键上面物品数量地址
@@ -94,6 +97,8 @@ public:
 	Item*     m_pItem;
 	// 对话类
 	Talk*     m_pTalk;
+	// 移动类
+	Move*     m_pMove;
 
 	// 自身
 	static Game* self;
