@@ -15,7 +15,15 @@ public:
 	// 根据物品类型获取物品ID
 	DWORD GetSelfItemIdByType(ITEM_TYPE type);
 	// 根据物品类型获取物品数量
-	DWORD GetSelfItemCountByType(ITEM_TYPE);
+	DWORD GetSelfItemCountByType(ITEM_TYPE type);
+	// 丢弃物品
+	DWORD DropSelfItem(DWORD item_id);
+	// 丢弃拥有物品
+	DWORD DropSelfItemByType(ITEM_TYPE type, DWORD live_count);
+	// 是否可以扔物品
+	bool IsCanDrop();
+	// 等待到可以扔物品
+	void WaitCanDrop();
 	// 读取地面物品
 	DWORD ReadGroundItems(GameGroundItem** save, DWORD save_length);
 	// 地面是否还有此物品
@@ -25,4 +33,7 @@ public:
 public:
 	// 游戏类
 	Game* m_pGame;
+
+	// 扔物品时间
+	__int64 m_i64DropTime;
 };

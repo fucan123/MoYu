@@ -1,11 +1,14 @@
 #include "Item.h"
 #include "Game.h"
 #include <stdio.h>
+#include <time.h>
+#include <My/Common/mystring.h>
 
 // ...
 Item::Item(Game * p)
 {
 	m_pGame = p;
+	m_i64DropTime = 0;
 }
 
 // 读取自己拥有物品
@@ -66,6 +69,53 @@ DWORD Item::GetSelfItemCountByType(ITEM_TYPE type)
 	return dwNum;
 }
 
+// 丢弃物品
+DWORD Item::DropSelfItem(DWORD item_id)
+{
+	WaitCanDrop();
+
+	m_i64DropTime = getmillisecond();
+	Game::Call_DropItem(item_id);
+	return 0;
+}
+
+// 丢弃拥有物品
+DWORD Item::DropSelfItemByType(ITEM_TYPE type, DWORD live_count)
+{
+	DWORD dwDropNum = 0; // 丢弃的数量
+	DWORD dwNum = 0;     // 拥有的数量
+	GameSelfItem* items[120];
+	DWORD dwCount = ReadSelfItems(items, 120);
+	for (DWORD i = 0; i < dwCount; i++) {
+		if (items[i] && items[i]->Type == type) {
+			if (++dwNum > live_count) { // 拥有的数量大于要保留的数量
+				dwDropNum++;
+				DropSelfItem(items[i]->Id);
+			}
+		}
+			
+	}
+	return dwDropNum;
+}
+
+// 是否可以扔物品
+bool Item::IsCanDrop()
+{
+	if (!m_i64DropTime)
+		return true;
+
+	__int64 ms = getmillisecond();
+	return ms >= (m_i64DropTime + 500);
+}
+
+// 等待到可以扔物品
+void Item::WaitCanDrop()
+{
+	while (!IsCanDrop()) {
+		Sleep(100);
+	}
+}
+
 
 // 读取地面物品
 DWORD Item::ReadGroundItems(GameGroundItem** save, DWORD save_length)
@@ -81,7 +131,7 @@ DWORD Item::ReadGroundItems(GameGroundItem** save, DWORD save_length)
 
 	dwCount = 0;
 	//printf("\n---------------------------\n");
-	//printf("[%d]地面物品数量：%d\n", (int)time(nullptr), dwCount);
+	printf("[%d]地面物品数量：%d\n", (int)time(nullptr), dwCount);
 	for (DWORD* p = pItemsBegin; p < pItemsEnd; p++) {
 		GameGroundItem* pItem = (GameGroundItem*)(*p);
 		if (!pItem || pItem->Id == 0xFFFFFFFF)
@@ -90,7 +140,7 @@ DWORD Item::ReadGroundItems(GameGroundItem** save, DWORD save_length)
 		save[dwCount] = pItem;
 		if (++dwCount == save_length)
 			break;
-		//printf("[%d]物品ID:%08X 物品类型:%08X X:%08X(%d) Y:%08X(%d)\n", (int)time(nullptr), pItem->Id, pItem->Type, pItem->X, pItem->X, pItem->Y, pItem->Y);
+		printf("[%d]物品ID:%08X 物品类型:%08X X:%08X(%d) Y:%08X(%d)\n", (int)time(nullptr), pItem->Id, pItem->Type, pItem->X, pItem->X, pItem->Y, pItem->Y);
 
 		//Call_PickUpItem(pItem);
 	}

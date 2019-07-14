@@ -48,6 +48,15 @@
     <ClInclude Include="Self\Move.h">
       <Filter>Self</Filter>
     </ClInclude>
+    <ClInclude Include="Self\GuaiWu.h">
+      <Filter>Self</Filter>
+    </ClInclude>
+    <ClInclude Include="Self\GameProc.h">
+      <Filter>Self</Filter>
+    </ClInclude>
+    <ClInclude Include="Self\GameStep.h">
+      <Filter>Self</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -72,6 +81,15 @@
       <Filter>Self</Filter>
     </ClCompile>
     <ClCompile Include="Self\Move.cpp">
+      <Filter>Self</Filter>
+    </ClCompile>
+    <ClCompile Include="Self\GuaiWu.cpp">
+      <Filter>Self</Filter>
+    </ClCompile>
+    <ClCompile Include="Self\GameProc.cpp">
+      <Filter>Self</Filter>
+    </ClCompile>
+    <ClCompile Include="Self\GameStep.cpp">
       <Filter>Self</Filter>
     </ClCompile>
   </ItemGroup>

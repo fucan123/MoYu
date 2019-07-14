@@ -1,0 +1,86 @@
+#pragma once
+#include <Windows.h>
+
+#define ONE_COOR_PIX     50   // 一坐标占用像数
+#define ONE_MAX_MOV_COOR 8    // 一次最大可移动8距离坐标
+#define ONE_MOV_MAX_MS   1000 // 一次移动最大允许时间(毫秒)
+
+#define BAG_NUM         40       // 包包容量
+#define WUPIN_YAOBAO    0x0B5593 // 药包
+#define WUPIN_XIANGLIAN 0x0B5B24 // 爱娜祈祷项链
+#define WUPIN_YAO       0x0F6982 // 药
+#define WUPIN_LINGYAO   0x0F943E // 速效圣兽灵药
+
+#define RUNRUN 1
+struct _step_;
+
+class Game;
+class GameStep;
+class GameProc
+{
+public:
+	// !!!
+	GameProc(Game* pGame);
+	// 运行
+	void Run();
+	// 移动
+	void Move(int x, int y);
+	// 点击
+	void Click(int x, int y, int num);
+	// 选择
+	void Select(int x, int y, int no);
+	// 鼠标移动
+	void MouMove(int x, int y);
+	// 按键
+	void KeyDown(unsigned char* keys);
+	// 等待
+	void Wait(int ms);
+	// 需要重新移动
+	bool IsNeedReMove();
+	// 点击
+	bool ClickEvent(int x, int y, int num, bool make = true);
+	// 计算实际要移动要的坐标
+	void CalcRealMovCoor();
+	// 制作点击坐标x
+	int MakeClickX(int& x, int& y, int dist_x);
+	// 制作点击坐标y
+	int MakeClickY(int& x, int& y, int dist_y);
+	// 制作点击坐标
+	int MakeClickCoor(int& x, int& y, int dist_x, int dist_y);
+	// 读取人物坐标
+	bool ReadCoor();
+	// 读取人物血量
+	bool ReadLife();
+	// 读取快捷键上面物品数量
+	bool ReadQuickKey2Num();
+	// 读取包包物品
+	bool ReadBag();
+	// 是否需要加血量
+	bool IsNeedAddLife();
+	// 加血
+	void AddLife();
+	// 停止
+	void Stop(bool v=true);
+public:
+	// 游戏指针
+	Game*     m_pGame;
+	// 游戏步骤指针
+	GameStep* m_pGameStep;
+	// 正在执行的步骤
+	_step_* m_pStep;
+	// 是否停止
+	bool  m_bStop = false;
+	// 人物坐标
+	DWORD   m_iCoorX = 0;
+	DWORD   m_iCoorY = 0;
+	// 人物移动到的坐标
+	int   m_iMovCoorX = 0;
+	int   m_iMovCoorY = 0;
+	// 人物血量
+	int   m_iLife = 0;
+	int   m_iLifeMax = 0;
+	// 快捷键上物品数量
+	int   m_QuickKey2Nums[2];
+	// 包包物品
+	DWORD m_dwBag[BAG_NUM];
+};

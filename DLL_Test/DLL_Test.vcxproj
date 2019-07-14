@@ -156,7 +156,10 @@
     <ClInclude Include="DLL_Test.h" />
     <ClInclude Include="Self\Game.h" />
     <ClInclude Include="Self\GameMain.h" />
+    <ClInclude Include="Self\GameProc.h" />
+    <ClInclude Include="Self\GameStep.h" />
     <ClInclude Include="Self\GameStruct.h" />
+    <ClInclude Include="Self\GuaiWu.h" />
     <ClInclude Include="Self\Item.h" />
     <ClInclude Include="Self\Move.h" />
     <ClInclude Include="Self\Talk.h" />
@@ -168,6 +171,9 @@
     <ClCompile Include="DLL_Test.cpp" />
     <ClCompile Include="Self\Game.cpp" />
     <ClCompile Include="Self\GameMain.cpp" />
+    <ClCompile Include="Self\GameProc.cpp" />
+    <ClCompile Include="Self\GameStep.cpp" />
+    <ClCompile Include="Self\GuaiWu.cpp" />
     <ClCompile Include="Self\Item.cpp" />
     <ClCompile Include="Self\Move.cpp" />
     <ClCompile Include="Self\Talk.cpp" />

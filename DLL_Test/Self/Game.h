@@ -5,6 +5,7 @@ class GameProc;
 class Item;
 class Talk;
 class Move;
+class GuaiWu;
 
 class Game
 {
@@ -28,15 +29,13 @@ public:
 	// 获取模块地址
 	DWORD FindModAddr(LPCWSTR name);
 	// 读取坐标
-	bool ReadCoor(DWORD& x, DWORD& y);
+	bool ReadCoor(DWORD* x=NULL, DWORD* y=NULL);
 	// 读取生命值
 	bool ReadLife(int& life, int& life_max);
 	// 读取药包数量
 	bool ReadQuickKey2Num(int* nums, int length);
 	// 读取包包物品
 	bool ReadBag(DWORD* bag, int length);
-	// 读取怪物
-	bool ReadGuaiWu();
 	// 人物是否在移动
 	bool IsMove();
 	// 攻击怪物
@@ -79,11 +78,18 @@ public:
 	// 游戏窗口信息
 	static GameWnd m_GameWnd;
 
+	// 当前X坐标
+	DWORD m_dwX;
+	// 当前Y坐标
+	DWORD m_dwY;
+
 	// 怪物数量
 	DWORD        m_dwGuaiWuCount;
 	// 怪物指针[数组 会new]
 	GameGuaiWu** m_pGuaiWus;
 
+	// 是否读取完毕
+	bool  m_bIsReadEnd;
 	// 读取内存块的大小
 	DWORD m_dwReadSize;
 	// 读取基地址
@@ -92,13 +98,15 @@ public:
 	BYTE* m_pReadBuffer;
 
 	// 游戏过程处理类
-	GameProc* m_pGameProc = nullptr;
+	GameProc* m_pGameProc;
 	// 物品类
 	Item*     m_pItem;
 	// 对话类
 	Talk*     m_pTalk;
 	// 移动类
 	Move*     m_pMove;
+	// 怪物类
+	GuaiWu*   m_pGuaiWu;
 
 	// 自身
 	static Game* self;

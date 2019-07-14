@@ -5,9 +5,11 @@
 #include <time.h>
 
 #include "Game.h"
+#include "GameProc.h"
 #include "Item.h"
 #include "Talk.h"
 #include "Move.h"
+#include "GuaiWu.h"
 
 GameModAddr Game::m_GameModAddr; // 游戏模块地址
 GameAddr    Game::m_GameAddr;    // 游戏一些数据地址
@@ -28,11 +30,14 @@ Game::Game()
 	ZeroMemory(&m_CallStep, sizeof(CallStep));
 
 	m_pGuaiWus = new GameGuaiWu*[GUAIWU_MAX];
+	m_bIsReadEnd = true;
 	m_pReadBuffer = new BYTE[1024 * 1024 * 10];
 
-	m_pItem = new Item(this); // 物品类
-	m_pTalk = new Talk(this); // 对话类
-	m_pMove = new Move(this); // 移动类
+	m_pGameProc = new GameProc(this);
+	m_pItem     = new Item(this); // 物品类
+	m_pTalk     = new Talk(this); // 对话类
+	m_pMove     = new Move(this); // 移动类
+	m_pGuaiWu   = new GuaiWu(this); // 怪物类
 }
 
 // >>>
@@ -44,6 +49,7 @@ Game::~Game()
 	delete m_pItem;
 	delete m_pTalk;
 	delete m_pMove;
+	delete m_pGuaiWu;
 }
 
 // 初始化
@@ -292,15 +298,27 @@ DWORD Game::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_lengt
 }
 
 // 读取坐标
-bool Game::ReadCoor(DWORD& x, DWORD& y)
+bool Game::ReadCoor(DWORD* x, DWORD* y)
 {
-	if (!m_GameAddr.CoorX || !m_GameAddr.CoorY)
-		return false;
+	bool result;
+	if (!m_GameAddr.CoorX || !m_GameAddr.CoorY) {
+		m_dwX = 0;
+		m_dwY = 0;
+		result = false;
+	}
+	else {
+		m_dwX = PtrToDword(m_GameAddr.CoorX);
+		m_dwY = PtrToDword(m_GameAddr.CoorY);
+		result = true;
+	}
+	if (x) {
+		*x = m_dwX;
+	}
+	if (y) {
+		*y = m_dwY;
+	}
 
-	x = PtrToDword(m_GameAddr.CoorX);
-	y = PtrToDword(m_GameAddr.CoorY);
-
-	return true;
+	return result;
 }
 
 // 读取生命值
@@ -330,57 +348,6 @@ bool Game::ReadBag(DWORD* bag, int length)
 	return ReadProcessMemory(m_hGameProcess, (PVOID)m_GameAddr.Bag, bag, length, NULL);
 }
 
-// 读取怪物
-bool Game::ReadGuaiWu()
-{
-	DWORD codes[] = {
-		0x123469F0, 0x00000000, 0xFFFFFFFF, 0x00000001,
-		0x00000000, 0x00000000, 0x1234F320, 0x00000000
-	};
-
-	DWORD address[16];
-	DWORD count = SearchCode(codes, sizeof(codes) / sizeof(DWORD), address, 16);
-	
-	if (count) {
-		DWORD x = 0, y = 0;
-		ReadCoor(x, y);
-		//printf("\n---------------------------\n");
-		printf("[%d]怪物数量：%d(%d)\n", (int)time(nullptr), count, m_dwGuaiWuCount + count);
-		DWORD num = 0, near_index = 0xff, near_dist = 0;
-		for (DWORD i = 0; i < count; i++) {
-			if (address[i] != ((DWORD)m_pGuaiWus[i + m_dwGuaiWuCount])) {
-				printf("不相等%d!=%d\n", i, i + m_dwGuaiWuCount);
-			}
-			GameGuaiWu* pGuaiWu = (GameGuaiWu*)address[i];
-			//printf("怪物地址:%08X\n", pGuaiWu);
-			//continue;
-			if (pGuaiWu->X > 0 && pGuaiWu->Y > 0 && pGuaiWu->Type && pGuaiWu->Type != 0x6E) {
-				char* name = (char*)((DWORD)address[i] + 0x520);
-				printf("%02d.%s[%08X]: x:%X[%d] y:%X[%d] 类型:%X\n", i + 1, name, pGuaiWu->Id, pGuaiWu->X, pGuaiWu->X, pGuaiWu->Y, pGuaiWu->Y, pGuaiWu->Type);
-
-				if (x && y) {
-					int cx = x - pGuaiWu->X, cy = y - pGuaiWu->Y;
-					DWORD cxy = abs(cx) + abs(cy);
-					if (near_index == 0xff || cxy < near_dist) {
-						near_index = i;
-						near_dist = cxy;
-					}
-				}
-
-				num++;
-			}
-		}
-		
-	}
-
-	m_dwGuaiWuCount += count;
-	if (m_dwGuaiWuCount > GUAIWU_MAX) {
-		printf("怪物数量达到上限:%d\n", m_dwGuaiWuCount);
-		m_dwGuaiWuCount = GUAIWU_MAX;
-	}
-	return count > 0;
-}
-
 // 人物是否在移动
 bool Game::IsMove()
 {
@@ -404,8 +371,7 @@ void Game::AttackGuaiWu()
 	printf("怪物总数量:%d\n", m_dwGuaiWuCount);
 
 	DWORD m = m_dwGuaiWuCount;// > 3 ? 3 : m_dwGuaiWuCount;
-	DWORD x = 0, y = 0;
-	ReadCoor(x, y);
+	ReadCoor();
 	DWORD num = 0, near_index = 0xff, near_dist = 0;
 	for (DWORD i = 0; i < m; i++) {
 		try {
@@ -415,8 +381,8 @@ void Game::AttackGuaiWu()
 				char* name = (char*)((DWORD)m_pGuaiWus[i] + 0x520);
 				printf("%02d.%s[%08X]: x:%X[%d] y:%X[%d] 类型:%X\n", i + 1, name, pGuaiWu->Id, pGuaiWu->X, pGuaiWu->X, pGuaiWu->Y, pGuaiWu->Y, pGuaiWu->Type);
 
-				if (x && y) {
-					int cx = x - pGuaiWu->X, cy = y - pGuaiWu->Y;
+				if (m_dwX && m_dwY) {
+					int cx = m_dwX - pGuaiWu->X, cy = m_dwY - pGuaiWu->Y;
 					DWORD cxy = abs(cx) + abs(cy);
 					if (near_index == 0xff || cxy < near_dist) {
 						near_index = i;
@@ -436,16 +402,16 @@ void Game::AttackGuaiWu()
 		if (near_index != 0xff) {
 			try {
 				GameGuaiWu* pGuaiWu = (GameGuaiWu*)m_pGuaiWus[near_index];
-				int mvx = x, mvy = y;
-				int cx = x - pGuaiWu->X, cy = y - pGuaiWu->Y;
+				int mvx = m_dwX, mvy = m_dwY;
+				int cx = m_dwX - pGuaiWu->X, cy = m_dwY - pGuaiWu->Y;
 				if (abs(cx) >= 8) {
-					mvx = pGuaiWu->X > x ? pGuaiWu->X - 5 : pGuaiWu->X + 5;
+					mvx = pGuaiWu->X > m_dwX ? pGuaiWu->X - 5 : pGuaiWu->X + 5;
 				}
 				if (abs(cy) >= 8) {
-					mvy = pGuaiWu->Y > y ? pGuaiWu->Y - 5 : pGuaiWu->Y + 5;
+					mvy = pGuaiWu->Y > m_dwY ? pGuaiWu->Y - 5 : pGuaiWu->Y + 5;
 				}
 
-				if (mvx != x || mvy != y) {
+				if (mvx != m_dwX || mvy != m_dwY) {
 					Call_Run(mvx, mvy);
 				}
 				else {
@@ -465,12 +431,14 @@ void Game::AttackGuaiWu()
 bool Game::ReadGameMemory(bool read_guaiwu)
 {
 	m_dwGuaiWuCount = 0; // 重置怪物数量
+	m_bIsReadEnd = false;
 
 	MEMORY_BASIC_INFORMATION mbi;
 	memset(&mbi, 0, sizeof(MEMORY_BASIC_INFORMATION));
 	DWORD_PTR MaxPtr = 0x30000000; // 最大读取内存地址
 	DWORD_PTR max = 0;
 
+	__int64 ms = getmillisecond();
 	DWORD_PTR ReadAddress = 0x00000000;
 	ULONG count = 0, failed = 0;
 	//printf("fuck\n");
@@ -495,7 +463,7 @@ bool Game::ReadGameMemory(bool read_guaiwu)
 
 			if (ReadProcessMemory(m_hGameProcess, (LPVOID)ReadAddress, m_pReadBuffer, m_dwReadSize, NULL)) {
 				if (read_guaiwu) {
-					ReadGuaiWu();
+					m_pGuaiWu->ReadGuaiWu();
 					goto _c;
 				}
 
@@ -526,6 +494,10 @@ bool Game::ReadGameMemory(bool read_guaiwu)
 		//printf("%016X---内存大小2:%08X\n", ReadAddress, mbi.RegionSize);
 		// 扫0x10000000字节内存 休眠100毫秒
 	}
+	__int64 ms2 = getmillisecond();
+	printf("读取完内存用时:%d毫秒\n", ms2 - ms);
+
+	m_bIsReadEnd = true;
 	return true;
 }
 
