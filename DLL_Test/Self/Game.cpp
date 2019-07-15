@@ -10,6 +10,7 @@
 #include "Talk.h"
 #include "Move.h"
 #include "GuaiWu.h"
+#include "Magic.h"
 
 GameModAddr Game::m_GameModAddr; // 游戏模块地址
 GameAddr    Game::m_GameAddr;    // 游戏一些数据地址
@@ -34,10 +35,11 @@ Game::Game()
 	m_pReadBuffer = new BYTE[1024 * 1024 * 10];
 
 	m_pGameProc = new GameProc(this);
-	m_pItem     = new Item(this); // 物品类
-	m_pTalk     = new Talk(this); // 对话类
-	m_pMove     = new Move(this); // 移动类
-	m_pGuaiWu   = new GuaiWu(this); // 怪物类
+	m_pItem     = new Item(this);      // 物品类
+	m_pTalk     = new Talk(this);      // 对话类
+	m_pMove     = new Move(this);      // 移动类
+	m_pGuaiWu   = new GuaiWu(this);    // 怪物类
+	m_pMagic    = new Magic(this);     // 技能类
 }
 
 // >>>
@@ -50,6 +52,7 @@ Game::~Game()
 	delete m_pTalk;
 	delete m_pMove;
 	delete m_pGuaiWu;
+	delete m_pMagic;
 }
 
 // 初始化

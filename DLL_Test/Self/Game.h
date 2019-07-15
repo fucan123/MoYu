@@ -6,6 +6,7 @@ class Item;
 class Talk;
 class Move;
 class GuaiWu;
+class Magic;
 
 class Game
 {
@@ -107,6 +108,8 @@ public:
 	Move*     m_pMove;
 	// 怪物类
 	GuaiWu*   m_pGuaiWu;
+	// 技能类
+	Magic*    m_pMagic;
 
 	// 自身
 	static Game* self;

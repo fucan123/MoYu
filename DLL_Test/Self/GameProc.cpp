@@ -1,6 +1,11 @@
 #include "GameProc.h"
 #include "Game.h"
 #include "GameStep.h"
+#include "Move.h"
+#include "Item.h"
+#include "GuaiWu.h"
+#include "Talk.h"
+#include "Magic.h"
 
 #include <My/Common/mystring.h>
 #include <My/Common/func.h>
@@ -56,139 +61,137 @@ void GameProc::Run()
 		m_pStep = step;
 
 		//INLOGVARN(64, "执行指令:[%d] Exec:%d", step->OpCode, step->Exec);
-		if (ReadCoor()) {
-			switch (step->OpCode)
-			{
-			case OP_MOVE:
-				Move(step->Pos.x, step->Pos.y);
-				break;
-			case OP_CLICK:
-				Click(step->Pos.x, step->Pos.y, step->ClickNum);
-				break;
-			case OP_SELECT:
-				Select(step->Pos.x, step->Pos.y, step->SelectNo);
-				break;
-			case OP_MOUMOVE:
-				MouMove(step->Pos.x, step->Pos.y);
-				break;
-			case OP_KEYDOWN:
-				KeyDown(step->Keys);
-				break;
-			case OP_WAIT:
-				Wait(step->WaitMs);
-				break;
-			default:
-				break;
-			}
+		switch (step->OpCode)
+		{
+		case OP_MOVE:
+			Move();
+			break;
+		case OP_NPC:
+			NPC();
+			break;
+		case OP_SELECT:
+			Select();
+			break;
+		case OP_MAGIC:
+			Magic();
+			break;
+		case OP_CRAZY:
+			KeyDown(step->Keys);
+			break;
+		case OP_WAIT:
+			Wait();
+			break;
+		default:
+			break;
+		}
 
+		while (true) {
+			Sleep(100);
 			if (IsNeedAddLife()) {
 				AddLife();
 			}
-		}
-		else {
-			INLOG("读取坐标失败！！！");
+			if (StepIsComplete()) { // 已完成此步骤
+				break;
+			}
 		}
 
+#if 0
 		int ms = 100;
 		if (m_pGameStep->CurrentCode() == OP_MOVE || m_pGameStep->NextCode() == OP_MOVE) {
 			ms = 25;
 		}
 		Sleep(ms);
 		//break;
+#endif
 	}
 
 	int second = time(nullptr) - start_time;
-	INLOGVARP(log, "完成，总用时:%02d分%02d秒", second/60, second%60);
+	printf("完成，总用时:%02d分%02d秒", second/60, second%60);
+}
+
+// 步骤是否已执行完毕
+bool GameProc::StepIsComplete()
+{
+	bool result = false;
+	switch (m_pStep->OpCode)
+	{
+	case OP_MOVE:
+		if (m_pGame->m_pMove->IsMoveEnd()) { // 已到指定位置
+			result = true;
+			goto end;
+		}
+		if (!m_pGame->m_pMove->IsMove()) {   // 已经停止移动
+			m_pGame->m_pMove->Run(m_pStep->X, m_pStep->Y);
+		}
+		break;
+	case OP_NPC:
+		result = m_pGame->m_pTalk->NPCTalkStatus();
+		if (!result) { // 对话框没有打开
+			m_pGame->m_pTalk->NPC(m_pStep->NPCId);
+		}
+		break;
+	case OP_SELECT:
+		result = true;
+		break;
+	case OP_MAGIC:
+		result = true;
+		break;
+	case OP_CRAZY:
+		result = true;
+		break;
+	case OP_CLEAR:
+		result = true;
+		break;
+	case OP_WAIT:
+		result = true;
+		break;
+	default:
+		result = true;
+		break;
+	}
+end:
+	return result;
 }
 
 // 移动
-void GameProc::Move(int x, int y)
+void GameProc::Move()
 {
-	if (m_iCoorX == x && m_iCoorY == y) {
-		INLOG("->移动已完成.");
-		m_pGameStep->CompleteExec();
-		return;
-	}
-
-	
-	if (m_pStep->Exec) {
-		if (!IsNeedReMove()) {
-			return;
-		}
-
-		m_pGameStep->SetExec(false, m_pStep);
-		
-		//INLOG(">>已在执行了.");
-		
-	}
-
-	if (!m_pStep->Exec) {
-		CalcRealMovCoor();
-
-		char log[64];
-		INLOGVARP(log, "->[%d,%d]移动到[%d,%d] 终点:[%d,%d]", m_iCoorX, m_iCoorY, m_iMovCoorX, m_iMovCoorY, x, y);
-		ClickEvent(m_iMovCoorX, m_iMovCoorY, 1, m_pStep->Pos.flag);
-		m_pGameStep->SetExec(true);
-	}
-	//INLOGVARP(log, ">>移动状态:%d", m_pGame->IsMove());
+	m_pGame->m_pMove->Run(m_pStep->X, m_pStep->Y);
 }
 
 // 点击
-void GameProc::Click(int x, int y, int num)
+void GameProc::NPC()
 {
-	//Sleep(2000);
-	INLOG("->开始点击");
-	if (!m_pStep->Pos.flag) {
-		x = m_pGame->m_GameWnd.Rect.left + x;
-		y = m_pGame->m_GameWnd.Rect.top + y;
-	}
-	if (ClickEvent(x, y, num, m_pStep->Pos.flag)) {
-		m_pGameStep->CompleteExec();
-		INLOG("->完成点击.");
-		Sleep(2000);
-	}
+	// https://31d7f5.link.yunpan.360.cn/lk/surl_yL2uvtfBesv#/-0
+	m_pGame->m_pTalk->NPC(m_pStep->NPCId);
 }
 
 // 选择
-void GameProc::Select(int x, int y, int no)
+void GameProc::Select()
 {
-	char log[64];
-	INLOGVARP(log, "->选择第%d个选项[%d,%d] %d", no, x, y, m_pStep->Pos.flag);
-	if (!m_pStep->Pos.flag) {
-		x = m_pGame->m_GameWnd.Rect.left + x;
-		y = m_pGame->m_GameWnd.Rect.top + y;
-
-		y += (no - 1) * 26;
-	}
-	if (ClickEvent(x, y, m_pStep->ClickNum, m_pStep->Pos.flag)) {
-		m_pGameStep->CompleteExec();
-		INLOGVARP(log, "->完成选择[%d,%d].", x, y);
+	for (DWORD i = 0; i < m_pStep->OpCount; i++) {
+		m_pGame->m_pTalk->NPCTalk(m_pStep->SelectNo);
+		if (i > 0) {
+			Sleep(500);
+			m_pGame->m_pTalk->WaitTalkBoxOpen();
+		}
 	}
 }
 
 // 鼠标移动
-void GameProc::MouMove(int x, int y)
+void GameProc::Magic()
 {
-	int cx, cy;
-	if (!m_pStep->Pos.flag) {
-		cx = m_pGame->m_GameWnd.Rect.left + x;
-		cy = m_pGame->m_GameWnd.Rect.top + y;
+	if (m_pStep->WaitMs) { // 需要等待冷却
+		while (!m_pGame->m_pMagic->CheckCd(m_pStep->Magic)) {
+			Sleep(100);
+		}
+	}
 
+	DWORD x = m_pStep->X, y = m_pStep->Y;
+	if (!x || !y) { // 释放的位置坐标
+		m_pGame->ReadCoor(&x, &y);
 	}
-	else {
-		MakeClickCoor(cx, cy, x, y);
-	}
-	
-	char log[64];
-	INLOGVARP(log, "->移动鼠标[%d,%d] 屏幕坐标[%d,%d]", x, y, cx, cy);
-
-	if (Drv_MouseMovAbsolute(cx, cy)) {
-		INLOG("->移动鼠标完成");
-	}
-	else {
-		INLOGVARP(log, "->移动鼠标失败[%d,%d] 屏幕坐标[%d,%d]", x, y, cx, cy);
-	}
-	m_pGameStep->CompleteExec();
+	m_pGame->m_pMagic->UseMagic(m_pStep->Magic, x, y);
 }
 
 // 按键
@@ -208,25 +211,36 @@ void GameProc::KeyDown(unsigned char* keys)
 }
 
 // 等待
-void GameProc::Wait(int ms)
+void GameProc::Wait()
+{
+	if (m_pStep->Magic) { // 等待技能冷却
+		while (!m_pGame->m_pMagic->CheckCd(m_pStep->Magic, m_pStep->WaitMs)) {
+			Sleep(100);
+		}
+	}
+	else { // 等待
+		Wait(m_pStep->WaitMs);
+	}
+}
+
+// 等待
+void GameProc::Wait(DWORD ms)
 {
 	int n = 0;
 	__int64 now_time = getmillisecond();
 	while (true) {
 		int c = getmillisecond() - now_time;
-		c = ms - c;
+		c = (int)ms - c;
 
 		if (c >= 0 && n != c) {
-			INLOGVARN(32, "等待%d秒，还剩%d秒", ms/1000, c/1000);
+			printf("等待%d秒，还剩%d秒", ms / 1000, c / 1000);
 		}
 		if (c <= 0) {
 			break;
 		}
 		n = c;
-		Sleep(1000);
+		Sleep(500);
 	}
-
-	m_pGameStep->CompleteExec();
 }
 
 // 需要重新移动
@@ -377,24 +391,25 @@ bool GameProc::IsNeedAddLife()
 // 加血
 void GameProc::AddLife()
 {
-	if (!ReadQuickKey2Num())
-		return;
-
-	if (m_QuickKey2Nums[0] > 1) {
-		INLOG("->加血.");
-
-		Drv_KeyDown('1');
-		Sleep(10);
-		Drv_KeyUp('1');
+	bool add = false;
+	DWORD count = m_pGame->m_pItem->GetSelfItemCountByType(速效治疗药水);
+	if (count > 0) { // 有药水
+		m_pGame->m_pItem->UseSelfItemByType(速效治疗药水);
+		add = true;
+		count--;
 	}
-	if (m_QuickKey2Nums[0] <= 3 && m_QuickKey2Nums[1] > 1) {
-		INLOG("->使用药包.");
-		Sleep(25);
-		Drv_KeyDown('2');
-		Sleep(10);
-		Drv_KeyUp('2');
+	if (count == 0) { // 没有药水了
+		if (m_pGame->m_pItem->GetSelfItemCountByType(速效治疗包) > 0) {
+			if (add) {
+				Sleep(200);
+			}	
+			m_pGame->m_pItem->UseSelfItemByType(速效治疗包); // 使用药包开出药水
+			if (!add) {
+				Sleep(200);
+				m_pGame->m_pItem->UseSelfItemByType(速效治疗药水);
+			}
+		}
 	}
-	Sleep(250);
 }
 
 // 停止

@@ -161,6 +161,7 @@
     <ClInclude Include="Self\GameStruct.h" />
     <ClInclude Include="Self\GuaiWu.h" />
     <ClInclude Include="Self\Item.h" />
+    <ClInclude Include="Self\Magic.h" />
     <ClInclude Include="Self\Move.h" />
     <ClInclude Include="Self\Talk.h" />
     <ClInclude Include="stdafx.h" />
@@ -175,6 +176,7 @@
     <ClCompile Include="Self\GameStep.cpp" />
     <ClCompile Include="Self\GuaiWu.cpp" />
     <ClCompile Include="Self\Item.cpp" />
+    <ClCompile Include="Self\Magic.cpp" />
     <ClCompile Include="Self\Move.cpp" />
     <ClCompile Include="Self\Talk.cpp" />
     <ClCompile Include="stdafx.cpp">

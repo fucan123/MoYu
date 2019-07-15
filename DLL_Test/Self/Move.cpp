@@ -10,16 +10,11 @@ Move::Move(Game * p)
 	ClearMove();
 }
 
-// 清除移动数据
-void Move::ClearMove()
+// 移动
+void Move::Run(DWORD x, DWORD y)
 {
-	m_dwX = 0;
-	m_dwY = 0;
-	m_dwLastX = 0;
-	m_dwLastY = 0;
-	m_dwMvX = 0;
-	m_dwMvY = 0;
-	m_i64MvTime = 0;
+	SetMove(x, y);
+	Game::Call_Run(x, y);
 }
 
 // 设置移动位置
@@ -30,6 +25,18 @@ void Move::SetMove(DWORD x, DWORD y)
 	m_dwMvX = x;
 	m_dwMvY = y;
 	m_i64MvTime = getmillisecond();
+}
+
+// 清除移动数据
+void Move::ClearMove()
+{
+	m_dwX = 0;
+	m_dwY = 0;
+	m_dwLastX = 0;
+	m_dwLastY = 0;
+	m_dwMvX = 0;
+	m_dwMvY = 0;
+	m_i64MvTime = 0;
 }
 
 // 是否达到终点

@@ -69,6 +69,22 @@ DWORD Item::GetSelfItemCountByType(ITEM_TYPE type)
 	return dwNum;
 }
 
+// 使用物品
+DWORD Item::UseSelfItem(DWORD item_id)
+{
+	if (!item_id)
+		return 0;
+
+	Game::Call_UseItem(item_id);
+	return 1;
+}
+
+// 使用物品
+DWORD Item::UseSelfItemByType(ITEM_TYPE type)
+{
+	return UseSelfItem(GetSelfItemIdByType(type));
+}
+
 // 丢弃物品
 DWORD Item::DropSelfItem(DWORD item_id)
 {

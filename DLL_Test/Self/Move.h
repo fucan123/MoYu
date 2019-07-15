@@ -1,6 +1,5 @@
 #pragma once
 #include "GameStruct.h"
-#include <Windows.h>
 
 class Game;
 
@@ -9,10 +8,12 @@ class Move
 public:
 	// ...
 	Move(Game* p);
-	// 清除移动数据
-	void ClearMove();
+	// 移动
+	void Run(DWORD x, DWORD y);
 	// 设置移动位置
 	void SetMove(DWORD x, DWORD y);
+	// 清除移动数据
+	void ClearMove();
 	// 是否达到终点
 	bool IsMoveEnd();
 	// 是否移动

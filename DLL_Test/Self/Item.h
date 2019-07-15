@@ -16,6 +16,10 @@ public:
 	DWORD GetSelfItemIdByType(ITEM_TYPE type);
 	// 根据物品类型获取物品数量
 	DWORD GetSelfItemCountByType(ITEM_TYPE type);
+	// 使用物品
+	DWORD UseSelfItem(DWORD item_id);
+	// 使用物品
+	DWORD UseSelfItemByType(ITEM_TYPE type);
 	// 丢弃物品
 	DWORD DropSelfItem(DWORD item_id);
 	// 丢弃拥有物品

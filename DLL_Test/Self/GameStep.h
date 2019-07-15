@@ -17,11 +17,12 @@ enum STEP_CODE
 {
 	OP_UNKNOW  = 0,
 	OP_MOVE    = 1,
-	OP_CLICK   = 2,
+	OP_NPC     = 2,
 	OP_SELECT  = 3,
-	OP_MOUMOVE = 4,
-	OP_KEYDOWN = 5,
-	OP_WAIT    = 6,
+	OP_MAGIC   = 4,
+	OP_CRAZY   = 5,
+	OP_CLEAR   = 6,
+	OP_WAIT    = 7,
 };
 struct Point
 {
@@ -35,22 +36,18 @@ struct _step_
 	STEP_CODE OpCode;   // 操作码
 	Point     Pos;      // 操作位置
 	int       ClickNum; // 点击次数
-	int       SelectNo; // 选项编号
-	int       WaitMs;   // 等待毫秒
 	u_char    Keys[16]; // 按下哪些键
 	__int64   ExecTime; // 执行时间
 	bool      Exec;     // 已在执行
 
 
-	DWORD     MvX;        // 要移动的位置X
-	DWORD     MvY;        // 要移动的位置Y
+	DWORD     X;          // 要操作的位置X
+	DWORD     Y;          // 要操作的位置Y
 	DWORD     NPCId;      // 要对话的NPCID 
-	DWORD     TalkIndex;  // 对话选择索引 0开始
-	DWORD     TalkCount;  // 对话次数
+	DWORD     SelectNo;   // 对话选择索引 0开始
 	MagicType Magic;      // 技能
-	DWORD     WaitMagic;  // 是否等待技能冷却
-	DWORD     WaitSecond; // 等待多少秒或技能可以有多少秒冷却
-	DWORD     WaitType;   // 0-WaitSecond为等待多少秒 其他值为技能[等待技能冷却,WaitSecond为允许可以有多少秒冷却]
+	DWORD     WaitMs;     // 等待多少毫秒或是否等待技能冷却或技能可以有多少秒冷却
+	DWORD     OpCount;    // 操作次数
 };
 
 class Explode;
@@ -79,27 +76,13 @@ private:
 	// 转成实际指令
 	STEP_CODE TransFormOP(const char* data);
 	// 转成实际坐标
-	bool TransFormPos(Explode& line, _step_& step);
-	// 转成实际按键
-	bool TransFormKey(Explode& line, _step_& step);
-	// 转成虚拟按键
-	u_char    TransFormKey(const char* data);
-	// 添加移动步骤
-	void AddMove(int x, int y, int flag=1);
-	// 添加移动步骤
-	void AddMove(int x, int y, u_char* keys, int length, int flag = 1);
-	// 添加点击步骤
-	void AddClick(int x, int y, int num=1, int flag = 1);
-	// 添加选择步骤
-	void AddSelect(int x, int y, int no);
-	// 添加鼠标移动步骤
-	void AddMouMove(int x, int y);
-	// 添加按键步骤
-	void AddKey(u_char key);
-	// 添加按键步骤
-	void AddKey(u_char* keys, int length);
-	// 添加等待步骤
-	void AddWait(u_int ms);
+	bool TransFormPos(const char* str, _step_& step);
+	// 转成实际技能
+	bool TransFormMagic(Explode& line, _step_& step);
+	// 转成实际技能
+	MagicType TransFormMagic(const char* str);
+	// 转成Wait数据
+	bool    TransFormWait(Explode& line, _step_& step);
 	// 添加步骤
 	void AddStep(_step_& step);
 public:

@@ -23,18 +23,22 @@ public:
 	GameProc(Game* pGame);
 	// 运行
 	void Run();
+	// 步骤是否已执行完毕
+	bool StepIsComplete();
 	// 移动
-	void Move(int x, int y);
+	void Move();
 	// 点击
-	void Click(int x, int y, int num);
+	void NPC();
 	// 选择
-	void Select(int x, int y, int no);
-	// 鼠标移动
-	void MouMove(int x, int y);
+	void Select();
+	// 技能
+	void Magic();
 	// 按键
 	void KeyDown(unsigned char* keys);
 	// 等待
-	void Wait(int ms);
+	void Wait();
+	// 等待
+	void Wait(DWORD ms);
 	// 需要重新移动
 	bool IsNeedReMove();
 	// 点击

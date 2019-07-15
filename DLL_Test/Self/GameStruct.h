@@ -167,6 +167,7 @@ enum SearchCodeType
 // 技能
 enum MagicType
 {
+	未知技能  = 0x00,
 	星陨     = 0x839,  // Call_Magic(., x, y)
 	影魂契约 = 0x91F, // Call_Magic(., guaiwu_id) 0x0F8EDE不知道是不是地面 此技能guaiwu_id固定这个参数
 	诸神裁决 = 0x983, // Call_Magic(., x, y)
