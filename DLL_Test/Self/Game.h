@@ -27,6 +27,8 @@ public:
 	void FindAllModAddr();
 	// 获取游戏所有CALL
 	void FindAllCall();
+	// 获取移动CALL
+	DWORD FindRunCall();
 	// 获取模块地址
 	DWORD FindModAddr(LPCWSTR name);
 	// 读取坐标
@@ -45,6 +47,8 @@ public:
 	bool FindCoorAddr();
 	// 获取移动状态地址
 	bool FindMoveStaAddr();
+	// 获取对话框状态地址
+	bool FinDTalkBoxStaAddr();
 	// 获取生命地址
 	bool FindLifeAddr();
 	// 获取快捷键上面物品数量地址
@@ -55,10 +59,12 @@ public:
 	bool FindItemPtr();
 	// 获取NPC二级对话ESI寄存器数值
 	bool FindCallNPCTalkEsi();
+	// 在某个模块里面搜索
+	DWORD SearchInMod(LPCTSTR name, DWORD* codes, DWORD length, DWORD* save, DWORD save_length = 1, DWORD step = 1);
 	// 搜索特征码
 	DWORD SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_length=1, DWORD step=4);
 	// 读取游戏内存
-	bool ReadGameMemory(bool read_guaiwu=false);
+	bool ReadGameMemory(DWORD flag=0x01);
 	// 打印日记
 	void InsertLog(char* text);
 	// 打印日记

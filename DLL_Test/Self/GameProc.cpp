@@ -30,17 +30,17 @@ void GameProc::Run()
 	return;
 #endif
 	if (!m_pGameStep->InitSteps()) {
-		INLOG("初始化步骤失败，无法继续运行！！！");
+		printf("初始化步骤失败，无法继续运行！！！\n");
 		return;
 	}
-	ReadQuickKey2Num();
-	INLOGVARP(log, "快捷键上物品数量:%d %d", m_QuickKey2Nums[0], m_QuickKey2Nums[1]);
+	//ReadQuickKey2Num();
+	//INLOGVARP(log, "快捷键上物品数量:%d %d", m_QuickKey2Nums[0], m_QuickKey2Nums[1]);
 	int n = 0;
 	int exec_time = time(nullptr) + 5;
 	while (true) {
 		int c = exec_time - time(nullptr);
 		if (c >= 0 && n != c) {
-			INLOGVARN(64, "准备开始执行，请别操作.[%d秒]", c);
+			printf("准备开始执行，请别操作.[%d秒]\n", c);
 		}
 		n = c;
 		if (c < 0) {
@@ -60,25 +60,29 @@ void GameProc::Run()
 
 		m_pStep = step;
 
-		//INLOGVARN(64, "执行指令:[%d] Exec:%d", step->OpCode, step->Exec);
 		switch (step->OpCode)
 		{
 		case OP_MOVE:
+			printf("正在移动:%d.%d\n", step->X, step->Y);
 			Move();
 			break;
 		case OP_NPC:
+			printf("NPC:%s\n", step->NPCName);
 			NPC();
 			break;
 		case OP_SELECT:
+			printf("选项:%d\n", step->SelectNo);
 			Select();
 			break;
 		case OP_MAGIC:
+			printf("技能:%08X\n", step->Magic);
 			Magic();
 			break;
 		case OP_CRAZY:
-			KeyDown(step->Keys);
+			//KeyDown(step->Keys);
 			break;
 		case OP_WAIT:
+			printf("等待:%d %08X\n", step->WaitMs/1000, step->Magic);
 			Wait();
 			break;
 		default:
@@ -88,12 +92,14 @@ void GameProc::Run()
 		while (true) {
 			Sleep(100);
 			if (IsNeedAddLife()) {
+				printf("加血.\n");
 				AddLife();
 			}
 			if (StepIsComplete()) { // 已完成此步骤
 				break;
 			}
 		}
+		m_pGameStep->CompleteExec();
 
 #if 0
 		int ms = 100;
@@ -106,7 +112,7 @@ void GameProc::Run()
 	}
 
 	int second = time(nullptr) - start_time;
-	printf("完成，总用时:%02d分%02d秒", second/60, second%60);
+	printf("完成，总用时:%02d分%02d秒\n", second/60, second%60);
 }
 
 // 步骤是否已执行完毕
@@ -127,7 +133,7 @@ bool GameProc::StepIsComplete()
 	case OP_NPC:
 		result = m_pGame->m_pTalk->NPCTalkStatus();
 		if (!result) { // 对话框没有打开
-			m_pGame->m_pTalk->NPC(m_pStep->NPCId);
+			m_pGame->m_pTalk->NPC(m_pStep->NPCName);
 		}
 		break;
 	case OP_SELECT:
@@ -163,7 +169,7 @@ void GameProc::Move()
 void GameProc::NPC()
 {
 	// https://31d7f5.link.yunpan.360.cn/lk/surl_yL2uvtfBesv#/-0
-	m_pGame->m_pTalk->NPC(m_pStep->NPCId);
+	m_pGame->m_pTalk->NPC(m_pStep->NPCName);
 }
 
 // 选择
@@ -233,7 +239,7 @@ void GameProc::Wait(DWORD ms)
 		c = (int)ms - c;
 
 		if (c >= 0 && n != c) {
-			printf("等待%d秒，还剩%d秒", ms / 1000, c / 1000);
+			printf("等待%d秒，还剩%d秒\n", ms / 1000, c / 1000);
 		}
 		if (c <= 0) {
 			break;

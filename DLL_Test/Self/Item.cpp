@@ -17,7 +17,7 @@ DWORD Item::ReadSelfItems(GameSelfItem ** save, DWORD save_length)
 	DWORD* pItem = NULL, dwCount = 0;
 	__asm
 	{
-		mov eax, dword ptr ds : [0xF03500]
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
 		mov eax, [eax]
 		mov eax, [eax + 0x21DC]     // [eax+0x10]为背包物品地址 是一个数组 长度为[eax+0x30]
 		mov edx, [eax + 0x10]       // [eax+0x10]物品地址指针

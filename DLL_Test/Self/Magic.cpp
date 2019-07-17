@@ -1,6 +1,7 @@
 #include "Magic.h"
 #include "Game.h"
 #include <My/Common/mystring.h>
+#include <stdio.h>
 
 // ...
 Magic::Magic(Game* p)
@@ -8,10 +9,10 @@ Magic::Magic(Game* p)
 	m_pGame = p;
 
 	m_dwMagicInfoCount = 0;
-	AddMagicInfo(星陨,    MCT_POS, 300000);
-	AddMagicInfo(影魂契约, MCT_POS, 45000);
+	AddMagicInfo(星陨,    MCT_POS, 30000);
+	AddMagicInfo(影魂契约, MCT_POS, 55000);
 	AddMagicInfo(诸神裁决, MCT_POS, 500);
-	AddMagicInfo(虚无空间, MCT_POS, 20000);
+	AddMagicInfo(虚无空间, MCT_POS, 30000);
 }
 
 // 使用技能
@@ -25,7 +26,8 @@ bool Magic::UseMagic(MagicType type, DWORD v, DWORD v2)
 
 	p->UseTime = getmillisecond();  // 使用时间
 	p->CdTime = p->UseTime + p->Cd; // 冷却时间
-
+	//printf("UseMagic:%d %d,%d %d\n", type, v, v2, p->CallType);
+	//return false;
 	if (p->CallType == MCT_POS) {
 		Game::Call_Magic(p->Type, v, v2);
 		return true;

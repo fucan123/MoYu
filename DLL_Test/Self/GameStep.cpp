@@ -7,7 +7,7 @@
 #include <My/Common/Explode.h>
 
 #define ZeroStep(p) memset(p, 0, sizeof(_step_))
-#define InitStep(n) _step_ n; ZeroStep(&n); n.Pos.flag=1;n.ClickNum=1; 
+#define InitStep(n) _step_ n; ZeroStep(&n);
 
 #define MAX_STEP 512
 
@@ -80,8 +80,8 @@ void GameStep::SetExec(bool v, _step_* step)
 bool GameStep::InitSteps()
 {
 	OpenTextFile file;
-	if (!file.Open("步骤.txt")) {
-		INLOG("找不到[步骤.txt]文件！！！");
+	if (!file.Open("C:\\Users\\Administrator\\Desktop\\魔域副本流程.txt")) {
+		printf("找不到'魔域副本流程.txt'文件！！！");
 		return false;
 	}
 
@@ -117,10 +117,13 @@ bool GameStep::InitSteps()
 					continue;
 				break;
 			case OP_NPC:
-				step.NPCId = explode.GetValue2Int(1);
+				strcpy(step.NPCName, explode[1]);
 				break;
 			case OP_SELECT:
 				step.SelectNo = explode.GetValue2Int(1);
+				step.OpCount = explode.GetValue2Int(2);
+				if (step.OpCount == 0)
+					step.OpCount = 1;
 				break;
 			case OP_MAGIC:
 				TransFormMagic(explode, step);
@@ -152,6 +155,8 @@ bool GameStep::InitSteps()
 // 转成实际指令
 STEP_CODE GameStep::TransFormOP(const char* data)
 {
+	if (data == nullptr)
+		return OP_UNKNOW;
 	// 以下为建筑类型
 	if (strcmp(data, "移动") == 0)
 		return OP_MOVE;
@@ -186,6 +191,7 @@ bool GameStep::TransFormPos(const char* str, _step_& step)
 // 转成实际技能
 bool GameStep::TransFormMagic(Explode& line, _step_ & step)
 {
+	//printf("TransFormMagic\n");
 	int index = 2;
 	step.Magic = TransFormMagic(line[1]);
 	if (strstr(line[2], ",")) { // 参数是坐标
@@ -193,11 +199,16 @@ bool GameStep::TransFormMagic(Explode& line, _step_ & step)
 		index++;
 	}
 	step.WaitMs = line.GetValue2Int(index) * 1000;
+	//printf("TransFormMagic End\n");
+
+	return true;
 }
 
 // 转成实际技能
 MagicType GameStep::TransFormMagic(const char* str)
 {
+	if (str == nullptr)
+		return 未知技能;
 	if (strcmp(str, "星陨") == 0)
 		return 星陨;
 	if (strcmp(str, "影魂契约") == 0)

@@ -66,26 +66,31 @@ bool GuaiWu::ReadGuaiWu()
 			//if (address[i] != ((DWORD)m_pGuaiWus[i + m_dwGuaiWuCount])) {
 				//printf("不相等%d!=%d\n", i, i + m_dwGuaiWuCount);
 			//}
-			GameGuaiWu* pGuaiWu = (GameGuaiWu*)address[i];
-			//printf("怪物地址:%08X\n", pGuaiWu);
-			//continue;
-			if (pGuaiWu->X > 0 && pGuaiWu->Y > 0 && pGuaiWu->Type && pGuaiWu->Type != 0x6E) {
-				char* name = (char*)((DWORD)address[i] + 0x520);
-				DWORD life = GetLife(pGuaiWu);
-				
-				printf("%02d[%08X].%s[%08X]: x:%X[%d] y:%X[%d] 类型:%X 血量:%d\n", i + 1, pGuaiWu, name, pGuaiWu->Id, pGuaiWu->X, pGuaiWu->X, pGuaiWu->Y, pGuaiWu->Y, pGuaiWu->Type, life);
+			try {
+
+				GameGuaiWu* pGuaiWu = (GameGuaiWu*)address[i];
+				//printf("怪物地址:%08X\n", pGuaiWu);
+				//continue;
+				if (pGuaiWu->X > 0 && pGuaiWu->Y > 0 && pGuaiWu->Type && pGuaiWu->Type) {
+					char* name = (char*)((DWORD)address[i] + 0x520);
+					DWORD life = GetLife(pGuaiWu);
+
+					printf("%02d[%08X].%s[%08X]: x:%X[%d] y:%X[%d] 类型:%X 血量:%d\n", i + 1, pGuaiWu, name, pGuaiWu->Id, pGuaiWu->X, pGuaiWu->X, pGuaiWu->Y, pGuaiWu->Y, pGuaiWu->Type, life);
 
 #if 0
-				if (m_pGame->m_dwX && y) {
-					int cx = m_dwX - pGuaiWu->X, cy = y - pGuaiWu->Y;
-					DWORD cxy = abs(cx) + abs(cy);
-					if (near_index == 0xff || cxy < near_dist) {
-						near_index = i;
-						near_dist = cxy;
+					if (m_pGame->m_dwX && y) {
+						int cx = m_dwX - pGuaiWu->X, cy = y - pGuaiWu->Y;
+						DWORD cxy = abs(cx) + abs(cy);
+						if (near_index == 0xff || cxy < near_dist) {
+							near_index = i;
+							near_dist = cxy;
+						}
 					}
-				}
 #endif
-				num++;
+					num++;
+				}
+			}
+			catch (void*) {
 			}
 		}
 
@@ -99,7 +104,7 @@ bool GuaiWu::ReadGuaiWu()
 	}
 #endif
 
-	return count > 0;
+	return true;
 }
 
 // 获取怪物当前血量

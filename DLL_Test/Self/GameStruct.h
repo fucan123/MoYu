@@ -5,7 +5,8 @@
 #define PtrToDword(v) (*(DWORD*)(v)) // 转成DWORD数值
 #define PtrVToDwordPtr(v) ToDwordPtr(PtrToDword(v)) // 先取此地址的值再把值转成DWORD指针
 
-#define INLOG(v) Game::Call_Talk(v, 2)
+// Game::Call_Talk(v, 2)
+#define INLOG(v) (v)
 #define INLOGVARP(p,...) { sprintf_s(p,__VA_ARGS__);INLOG(p); }
 #define INLOGVARN(n,...) {char _s[n]; INLOGVARP(_s,__VA_ARGS__); }
 
@@ -21,6 +22,8 @@
 #define ADDR_TALKBOX_REAL   (PtrToDword(ADDR_TALKBOX_PTR)+0x5394)
 #define CHD_TALBOX_STATUS   0x00         // 0-对话框没有打开 1-打开
 #define CHD_TALBOX_STRING   0x1144       // 对话框内容相对于对话框偏移
+
+#define BASE_DS_OFFSET      0x0F07500     // 游戏常用偏移 mov ecx, dword ptr ds : [0xF07500]
 
 #define GUAIWU_MAX          100          // 最大读取怪物数量
 
@@ -48,6 +51,7 @@ typedef struct game_addr
 	DWORD CoorX;          // X坐标
 	DWORD CoorY;          // Y坐标
 	DWORD MovSta;         // 移动状态
+	DWORD TalKBoxSta;     // 对话框状态
 	DWORD QuickKeyNum;    // 快捷键上面物品数量(F1那一排)
 	DWORD QuickKey2Num;   // 快捷键上面物品数量(1 那一排)
 	DWORD QuickKeyType;   // 快捷键上面物品类型(F1那一排)

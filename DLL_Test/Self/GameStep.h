@@ -34,20 +34,17 @@ struct Point
 struct _step_
 {
 	STEP_CODE OpCode;   // 操作码
-	Point     Pos;      // 操作位置
-	int       ClickNum; // 点击次数
-	u_char    Keys[16]; // 按下哪些键
-	__int64   ExecTime; // 执行时间
-	bool      Exec;     // 已在执行
 
-
-	DWORD     X;          // 要操作的位置X
-	DWORD     Y;          // 要操作的位置Y
-	DWORD     NPCId;      // 要对话的NPCID 
-	DWORD     SelectNo;   // 对话选择索引 0开始
-	MagicType Magic;      // 技能
-	DWORD     WaitMs;     // 等待多少毫秒或是否等待技能冷却或技能可以有多少秒冷却
-	DWORD     OpCount;    // 操作次数
+	DWORD     X;           // 要操作的位置X
+	DWORD     Y;           // 要操作的位置Y
+	DWORD     NPCId;       // 要对话的NPCID 
+	CHAR      NPCName[32]; // 要对话的NPC名称
+	DWORD     SelectNo;    // 对话选择索引 0开始
+	MagicType Magic;       // 技能
+	DWORD     WaitMs;      // 等待多少毫秒或是否等待技能冷却或技能可以有多少秒冷却
+	DWORD     OpCount;     // 操作次数
+	__int64   ExecTime;    // 执行时间
+	bool      Exec;        // 已在执行
 };
 
 class Explode;
