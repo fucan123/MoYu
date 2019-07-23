@@ -40,7 +40,31 @@ void Talk::NPCTalk(DWORD no)
 // NPC对话状态[对话框是否打开]
 bool Talk::NPCTalkStatus()
 {
-	return m_pGame->m_GameAddr.TalKBoxSta ? PtrToDword(m_pGame->m_GameAddr.TalKBoxSta) != 0 : true;
+	try {
+		return PtrToDword(m_pGame->m_GameAddr.TalKBoxSta) != 0;
+	}
+	catch (...) {
+		printf("Talk::NPCTalkStatus失败\n");
+		return false;
+	}
+}
+
+// 提示框是否打开
+bool Talk::TipBoxStatus()
+{
+	try {
+		return PtrToDword(m_pGame->m_GameAddr.TipBoxSta + 0xA0) != 0;
+	}
+	catch (...) {
+		printf("Talk::TipBoxStatus失败\n");
+		return false;
+	}
+}
+
+// 关闭提示框
+void Talk::CloseTipBox(int close)
+{
+	Game::Call_CloseTipBox(close);
 }
 
 // 等待对话框打开
@@ -48,7 +72,7 @@ bool Talk::WaitTalkBoxOpen()
 {
 	__int64 ms = getmillisecond();
 	while (!NPCTalkStatus()) {
-		if (getmillisecond() > (ms + 3000)) { // 超过3秒
+		if (getmillisecond() > (ms + 2000)) { // 超过3秒
 			return false;
 		}
 		Sleep(100);
@@ -96,7 +120,7 @@ bool Talk::ReadNPC()
 				if (m_bIsSearchNPC) {
 					if (id && strcmp(m_chSearchNPCName, name) == 0) {
 						bool no_search = true;
-						for (DWORD j = 0; j < m_dwIsSearchCount; i++) { // 已经搜索了的 不再使用
+						for (DWORD j = 0; j < m_dwIsSearchCount; j++) { // 已经搜索了的 不再使用
 							if (m_ListIsSearch[j] == id) {
 								no_search = false;
 								break;

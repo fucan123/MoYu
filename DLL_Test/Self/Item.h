@@ -19,7 +19,7 @@ public:
 	// 使用物品
 	DWORD UseSelfItem(DWORD item_id);
 	// 使用物品
-	DWORD UseSelfItemByType(ITEM_TYPE type);
+	DWORD UseSelfItemByType(ITEM_TYPE type, DWORD use_count=1);
 	// 丢弃物品
 	DWORD DropSelfItem(DWORD item_id);
 	// 丢弃拥有物品
@@ -33,7 +33,9 @@ public:
 	// 地面是否还有此物品
 	bool GroundHasItem(DWORD item_id);
 	// 捡物品
-	void PickUpItem();
+	DWORD PickUpItem(ITEM_TYPE* items, DWORD length);
+	// 是否已捡起来
+	bool IsPickUp(DWORD item_id);
 public:
 	// 游戏类
 	Game* m_pGame;

@@ -10,9 +10,35 @@ GuaiWu::GuaiWu(Game * p)
 	InitAttack();
 }
 
+// 清理怪物
+bool GuaiWu::Clear(MagicType type, DWORD cx, DWORD cy)
+{
+	m_bIsClear = true;
+	m_dwCX = cx;
+	m_dwCY = cy;
+
+	while (true) { // 已清理完毕
+		if (IsIgnoreAttack()) // 忽略正在攻击怪物
+			m_pGame->ReadGameMemory(0x10); // 获取怪物列表
+
+		if (!m_pAttack)
+			return true;
+
+		try {
+			m_pGame->m_pMagic->UseMagic(type, m_pAttack->X, m_pAttack->Y);
+		}
+		catch (...) {
+			printf("GuaiWu::Clear怪物无效\n");
+			return true;
+		}
+		Sleep(100);
+	}
+}
+
 // 初始化被攻击的怪物
 void GuaiWu::InitAttack()
 {
+	m_bIsClear = false;
 	m_pAttack = nullptr;
 	m_i64AttackTime = 0;
 }
@@ -28,14 +54,18 @@ void GuaiWu::SetAttack(GameGuaiWu * p)
 bool GuaiWu::IsIgnoreAttack()
 {
 	try {
+		if (!m_pAttack)  // 没有正在攻击的
+			throw nullptr;
 		if (!m_pAttack->Id || !m_pAttack->X || !m_pAttack->Y) { // 信息无效
-			throw "...";
+			throw nullptr;
 		}
 		if (!GetLife(m_pAttack)) { // 无血量
-			throw "...";
+			printf("GuaiWu::IsIgnoreAttack怪物血量为0\n");
+			throw nullptr;
 		}
+		return false;
 	}
-	catch (void*) {
+	catch (...) {
 		InitAttack();
 		return true;
 	}
@@ -67,16 +97,23 @@ bool GuaiWu::ReadGuaiWu()
 				//printf("不相等%d!=%d\n", i, i + m_dwGuaiWuCount);
 			//}
 			try {
-
 				GameGuaiWu* pGuaiWu = (GameGuaiWu*)address[i];
-				//printf("怪物地址:%08X\n", pGuaiWu);
+				printf("怪物地址:%08X\n", pGuaiWu);
 				//continue;
-				if (pGuaiWu->X > 0 && pGuaiWu->Y > 0 && pGuaiWu->Type && pGuaiWu->Type) {
+				if (pGuaiWu->X > 0 && pGuaiWu->Y > 0 && pGuaiWu->Type) {
 					char* name = (char*)((DWORD)address[i] + 0x520);
 					DWORD life = GetLife(pGuaiWu);
 
 					printf("%02d[%08X].%s[%08X]: x:%X[%d] y:%X[%d] 类型:%X 血量:%d\n", i + 1, pGuaiWu, name, pGuaiWu->Id, pGuaiWu->X, pGuaiWu->X, pGuaiWu->Y, pGuaiWu->Y, pGuaiWu->Type, life);
 
+					if (m_bIsClear) { // 清怪
+						DWORD cx = abs((int)m_pGame->m_dwX - (int)pGuaiWu->X);
+						DWORD cy = abs((int)m_pGame->m_dwY - (int)pGuaiWu->Y);
+						if (cx <= m_dwCX && cy <= m_dwCY) { // 在攻击范围内
+							m_pAttack = pGuaiWu;
+							return false;
+						}
+					}
 #if 0
 					if (m_pGame->m_dwX && y) {
 						int cx = m_dwX - pGuaiWu->X, cy = y - pGuaiWu->Y;
@@ -112,7 +149,7 @@ DWORD GuaiWu::GetLife(GameGuaiWu* p)
 {
 	__asm {
 		mov eax, dword ptr[p]
-		add eax, 0x15CC // 偏移0x15CC处为血量指针-0x0C
+		add eax, 0x15CC // 偏移0x15CC处为血量指针+0x0C
 		mov eax, [eax]
 		add eax, 0x0C   // 保存血量指针的指针
 		mov eax, [eax]  // 血量指针

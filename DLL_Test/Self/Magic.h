@@ -41,6 +41,6 @@ public:
 	DWORD m_dwMagicInfoCount;
 	// 技能信息列表
 	MagicInfo m_ListMagicInfo[MAX_MAGIC_COUNT];
-	// 移动时间
-	__int64 m_i64MvTime;
+	// 正在攻击的怪物Id
+	DWORD m_dwAttackGWId;
 };

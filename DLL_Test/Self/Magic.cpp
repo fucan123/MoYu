@@ -7,12 +7,15 @@
 Magic::Magic(Game* p)
 {
 	m_pGame = p;
+	m_dwAttackGWId = 0;
 
 	m_dwMagicInfoCount = 0;
-	AddMagicInfo(星陨,    MCT_POS, 30000);
-	AddMagicInfo(影魂契约, MCT_POS, 55000);
-	AddMagicInfo(诸神裁决, MCT_POS, 500);
-	AddMagicInfo(虚无空间, MCT_POS, 30000);
+	AddMagicInfo(生命祈祷, MCT_GWID, 100);
+	AddMagicInfo(神圣复苏, MCT_GWID, 80000);
+	AddMagicInfo(星陨,    MCT_POS,  31000);
+	AddMagicInfo(影魂契约, MCT_POS,  56000);
+	AddMagicInfo(诸神裁决, MCT_POS,  500);
+	AddMagicInfo(虚无空间, MCT_POS,  31000);
 }
 
 // 使用技能

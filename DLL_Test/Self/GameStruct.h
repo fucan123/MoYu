@@ -23,7 +23,19 @@
 #define CHD_TALBOX_STATUS   0x00         // 0-对话框没有打开 1-打开
 #define CHD_TALBOX_STRING   0x1144       // 对话框内容相对于对话框偏移
 
-#define BASE_DS_OFFSET      0x0F07500     // 游戏常用偏移 mov ecx, dword ptr ds : [0xF07500]
+#define BASE_DS_OFFSET      0x0F07500               // 游戏常用偏移 mov ecx, dword ptr ds : [0xF07500]
+#define CALLTALK_DS_COMMON  (BASE_DS_OFFSET-0x04)   // 喊话-公共频道
+#define CALLTALK_DS_TEAM    (BASE_DS_OFFSET-0x08)   // 喊话-队伍
+#define CALLNPC_DS          (BASE_DS_OFFSET+0x21F4) // NPC对话
+#define CALLUSEITEM_DS      (BASE_DS_OFFSET+0x0D30) // 使用物品
+#define CALLDROPITEM_DS     (BASE_DS_OFFSET+0x1580) // 丢弃物品
+#define CALLPICKUPITEM_DS   (BASE_DS_OFFSET+0x23C4) // 捡拾物品
+#define CALLMAGIC_DS        (BASE_DS_OFFSET+0x2268) // 使用技能-怪物ID
+#define CALLMAGIC_XY_DS     (BASE_DS_OFFSET+0x175C) // 使用技能-XY坐标
+#define CALLPETOUT_DS       (BASE_DS_OFFSET+0x06AC) // 宠物出征
+#define CALLPETIN_DS        (BASE_DS_OFFSET+0x06B0) // 宠物召回
+#define CALLPETFUCK_DS      (BASE_DS_OFFSET+0x1548) // 宠物合体
+#define CALLPETUNFUCK_DS    (BASE_DS_OFFSET+0x06BC) // 宠物解体
 
 #define GUAIWU_MAX          100          // 最大读取怪物数量
 
@@ -52,12 +64,14 @@ typedef struct game_addr
 	DWORD CoorY;          // Y坐标
 	DWORD MovSta;         // 移动状态
 	DWORD TalKBoxSta;     // 对话框状态
+	DWORD TipBoxSta;      // 提示框状态
 	DWORD QuickKeyNum;    // 快捷键上面物品数量(F1那一排)
 	DWORD QuickKey2Num;   // 快捷键上面物品数量(1 那一排)
 	DWORD QuickKeyType;   // 快捷键上面物品类型(F1那一排)
 	DWORD QuickKey2Type;  // 快捷键上面物品类型(1 那一排)
 	DWORD ItemPtr;        // 保存的为地面物品指针首地址 *Itemptr=地面物品地址首地址 *(Itemptr+4)=地面物品地址末地址
 	DWORD CallNpcTalkEsi; // NPC二级对话ESI寄存器数值
+	DWORD PetPtr;         // 宠物列表基地址 详见宠物类
 } GameAddr;
 
 // 游戏CALL地址
@@ -172,7 +186,9 @@ enum SearchCodeType
 enum MagicType
 {
 	未知技能  = 0x00,
-	星陨     = 0x839,  // Call_Magic(., x, y)
+	生命祈祷  = 0x7D6, // Call_Magic(., pet_id) 复活单个宠物
+	神圣复苏  = 0x7D7, // Call_Magic(., pet_id) 复活所有宠物
+	星陨     = 0x839, // Call_Magic(., x, y)
 	影魂契约 = 0x91F, // Call_Magic(., guaiwu_id) 0x0F8EDE不知道是不是地面 此技能guaiwu_id固定这个参数
 	诸神裁决 = 0x983, // Call_Magic(., x, y)
 	虚无空间 = 0x9C9, // Call_Magic(., x, y)

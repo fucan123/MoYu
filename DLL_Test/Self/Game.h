@@ -7,6 +7,7 @@ class Talk;
 class Move;
 class GuaiWu;
 class Magic;
+class Pet;
 
 class Game
 {
@@ -39,8 +40,6 @@ public:
 	bool ReadQuickKey2Num(int* nums, int length);
 	// 读取包包物品
 	bool ReadBag(DWORD* bag, int length);
-	// 人物是否在移动
-	bool IsMove();
 	// 攻击怪物
 	void AttackGuaiWu();
 	// 获取坐标地址
@@ -48,7 +47,9 @@ public:
 	// 获取移动状态地址
 	bool FindMoveStaAddr();
 	// 获取对话框状态地址
-	bool FinDTalkBoxStaAddr();
+	bool FindTalkBoxStaAddr();
+	// 获取提示框状态地址
+	bool FindTipBoxStaAddr();
 	// 获取生命地址
 	bool FindLifeAddr();
 	// 获取快捷键上面物品数量地址
@@ -59,6 +60,8 @@ public:
 	bool FindItemPtr();
 	// 获取NPC二级对话ESI寄存器数值
 	bool FindCallNPCTalkEsi();
+	// 获取宠物列表基地址
+	bool FindPetPtrAddr();
 	// 在某个模块里面搜索
 	DWORD SearchInMod(LPCTSTR name, DWORD* codes, DWORD length, DWORD* save, DWORD save_length = 1, DWORD step = 1);
 	// 搜索特征码
@@ -116,6 +119,8 @@ public:
 	GuaiWu*   m_pGuaiWu;
 	// 技能类
 	Magic*    m_pMagic;
+	// 宠物类
+	Pet*      m_pPet;
 
 	// 自身
 	static Game* self;
@@ -138,6 +143,8 @@ public:
 	void static Call_NPC(int npc_id);
 	// NPC二级对话
 	void static Call_NPCTalk(int no);
+	// 关闭提示框
+	void static Call_CloseTipBox(int close=1);
 	// 使用物品
 	void static Call_UseItem(int item_id);
 	// 扔物品
@@ -148,4 +155,10 @@ public:
 	void static Call_Magic(int magic_id, int guaiwu_id);
 	// 放技能
 	void static Call_Magic(int magic_id, int x, int y);
+	// 宠物出征
+	void static Call_PetOut(int pet_id);
+	// 宠物召回
+	void static Call_PetIn(int pet_id);
+	// 宠物合体
+	void static Call_PetFuck(int pet_id);
 };

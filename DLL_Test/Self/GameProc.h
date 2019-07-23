@@ -1,4 +1,5 @@
 #pragma once
+#include "GameStruct.h"
 #include <Windows.h>
 
 #define ONE_COOR_PIX     50   // 一坐标占用像数
@@ -33,8 +34,12 @@ public:
 	void Select();
 	// 技能
 	void Magic();
-	// 按键
-	void KeyDown(unsigned char* keys);
+	// 狂甩
+	void Crazy();
+	// 清怪
+	void Clear();
+	// 捡物
+	void PickUp();
 	// 等待
 	void Wait();
 	// 等待
@@ -74,6 +79,14 @@ public:
 	_step_* m_pStep;
 	// 是否停止
 	bool  m_bStop = false;
+	// 是否暂停
+	bool  m_bPause = false;
+	// 是否重新开始
+	bool  m_bReStart = false;
+	// 是否狂甩
+	bool m_bIsCrazy = false;
+	// 狂甩技能
+	MagicType m_CrazyMagic;
 	// 人物坐标
 	DWORD   m_iCoorX = 0;
 	DWORD   m_iCoorY = 0;
@@ -87,4 +100,6 @@ public:
 	int   m_QuickKey2Nums[2];
 	// 包包物品
 	DWORD m_dwBag[BAG_NUM];
+	// 加血时间
+	__int64 m_i64AddLifeTime = 0;
 };

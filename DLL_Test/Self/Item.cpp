@@ -15,25 +15,27 @@ Item::Item(Game * p)
 DWORD Item::ReadSelfItems(GameSelfItem ** save, DWORD save_length)
 {
 	DWORD* pItem = NULL, dwCount = 0;
-	__asm
-	{
-		mov eax, dword ptr ds : [BASE_DS_OFFSET]
-		mov eax, [eax]
-		mov eax, [eax + 0x21DC]     // [eax+0x10]为背包物品地址 是一个数组 长度为[eax+0x30]
-		mov edx, [eax + 0x10]       // [eax+0x10]物品地址指针
-		mov dword ptr[pItem], edx
-		mov edx, [eax + 0x30]       // 物品数量
-		mov dword ptr[dwCount], edx
+	try {
+		__asm
+		{
+			mov eax, dword ptr ds : [BASE_DS_OFFSET]
+			mov eax, [eax]
+			mov eax, [eax + 0x21DC]     // [eax+0x10]为背包物品地址 是一个数组 长度为[eax+0x30]
+			mov edx, [eax + 0x10]       // [eax+0x10]物品地址指针
+			mov dword ptr[pItem], edx
+			mov edx, [eax + 0x30]       // 物品数量
+			mov dword ptr[dwCount], edx
+		}
+
+		//printf("pItem:%08X dwCount:%d\n", pItem, dwCount);
+		for (DWORD i = 0; i < dwCount; i++, pItem++) {
+			if (i >= save_length)
+				break;
+			save[i] = (GameSelfItem*)*pItem;
+		}
 	}
-
-	if (!pItem)
-		return 0;
-	//printf("pItem:%08X dwCount:%d\n", pItem, dwCount);
-
-	for (DWORD i = 0; i < dwCount; i++, pItem++) {
-		if (i >= save_length)
-			break;
-		save[i] = (GameSelfItem*)*pItem;
+	catch (...) {
+		printf("Item::ReadSelfItems失败\n");
 	}
 
 	return dwCount;
@@ -80,9 +82,16 @@ DWORD Item::UseSelfItem(DWORD item_id)
 }
 
 // 使用物品
-DWORD Item::UseSelfItemByType(ITEM_TYPE type)
+DWORD Item::UseSelfItemByType(ITEM_TYPE type, DWORD use_count)
 {
-	return UseSelfItem(GetSelfItemIdByType(type));
+	DWORD dwCount = 0;
+	for (DWORD i = 0; i < use_count; i++) {
+		if (UseSelfItem(GetSelfItemIdByType(type)))
+			dwCount++;
+		if (i > 0)
+			Sleep(100);
+	}
+	return dwCount;
 }
 
 // 丢弃物品
@@ -121,7 +130,7 @@ bool Item::IsCanDrop()
 		return true;
 
 	__int64 ms = getmillisecond();
-	return ms >= (m_i64DropTime + 500);
+	return ms >= (m_i64DropTime + 800);
 }
 
 // 等待到可以扔物品
@@ -139,29 +148,35 @@ DWORD Item::ReadGroundItems(GameGroundItem** save, DWORD save_length)
 	if (!m_pGame->m_GameAddr.ItemPtr)
 		return 0;
 
-	DWORD* pItemsBegin = PtrVToDwordPtr(m_pGame->m_GameAddr.ItemPtr);   // 地面物品列表指针首地址
-	DWORD* pItemsEnd = PtrVToDwordPtr(m_pGame->m_GameAddr.ItemPtr + 4); // 地面物品列表指针末地址
-	DWORD  dwCount = pItemsEnd - pItemsBegin;
-	if (dwCount == 0 || dwCount > 128)
-		return 0;
+	DWORD  dwCount = 0;
+	try {
+		DWORD* pItemsBegin = PtrVToDwordPtr(m_pGame->m_GameAddr.ItemPtr);   // 地面物品列表指针首地址
+		DWORD* pItemsEnd = PtrVToDwordPtr(m_pGame->m_GameAddr.ItemPtr + 4); // 地面物品列表指针末地址
+		dwCount = pItemsEnd - pItemsBegin;
+		if (dwCount == 0 || dwCount > 128)
+			return 0;
 
-	dwCount = 0;
-	//printf("\n---------------------------\n");
-	printf("[%d]地面物品数量：%d\n", (int)time(nullptr), dwCount);
-	for (DWORD* p = pItemsBegin; p < pItemsEnd; p++) {
-		GameGroundItem* pItem = (GameGroundItem*)(*p);
-		if (!pItem || pItem->Id == 0xFFFFFFFF)
-			continue;
+		dwCount = 0;
+		//printf("\n---------------------------\n");
+		printf("[%d]地面物品数量：%d\n", (int)time(nullptr), dwCount);
+		for (DWORD* p = pItemsBegin; p < pItemsEnd; p++) {
+			GameGroundItem* pItem = (GameGroundItem*)(*p);
+			if (!pItem || pItem->Id == 0xFFFFFFFF)
+				continue;
 
-		save[dwCount] = pItem;
-		if (++dwCount == save_length)
-			break;
-		printf("[%d]物品ID:%08X 物品类型:%08X X:%08X(%d) Y:%08X(%d)\n", (int)time(nullptr), pItem->Id, pItem->Type, pItem->X, pItem->X, pItem->Y, pItem->Y);
+			save[dwCount] = pItem;
+			if (++dwCount == save_length)
+				break;
+			printf("[%d]物品ID:%08X 物品类型:%08X X:%08X(%d) Y:%08X(%d)\n", (int)time(nullptr), pItem->Id, pItem->Type, pItem->X, pItem->X, pItem->Y, pItem->Y);
 
-		//Call_PickUpItem(pItem);
+			//Call_PickUpItem(pItem);
+		}
+		//printf("\n---------------------------\n");
 	}
-	//printf("\n---------------------------\n");
-
+	catch (...) {
+		printf("ReadGroundItems失败\n");
+	}
+	
 	return dwCount;
 }
 
@@ -178,17 +193,43 @@ bool Item::GroundHasItem(DWORD item_id)
 }
 
 // 捡物品
-void Item::PickUpItem()
+DWORD Item::PickUpItem(ITEM_TYPE* items, DWORD length)
+{
+	DWORD dwPickUpCount = 0; // 捡了多少物品
+	GameGroundItem* pItems[32];
+	DWORD dwCount = ReadGroundItems(pItems, sizeof(pItems) / sizeof(GameGroundItem*));
+	try {
+		for (DWORD i = 0; i < dwCount; i++) {
+			for (DWORD j = 0; j < length; j++) {
+				if (items[j] == pItems[i]->Type) {     // 是要捡起来的物品
+					Game::Call_PickUpItem(pItems[i]);  // 捡起来
+					while (!IsPickUp(pItems[i]->Id)) { // 等待物品捡起来
+						Sleep(50);
+					}
+					dwPickUpCount++;
+					break;
+				}
+			}
+		}
+	}
+	catch (...) {
+		printf("Item::PickUpItem失败\n");
+	}
+
+	return dwPickUpCount;
+}
+
+// 是否已捡起来
+bool Item::IsPickUp(DWORD item_id)
 {
 	try {
 		GameGroundItem* pItems[32];
 		DWORD dwCount = ReadGroundItems(pItems, sizeof(pItems) / sizeof(GameGroundItem*));
 		for (DWORD i = 0; i < dwCount; i++) {
-			Game::Call_PickUpItem(pItems[i]);
-			break;
+			if (item_id == pItems[i]->Id)
+				return false;
 		}
 	}
-	catch (void*) {
-
-	}
+	catch (...) { }
+	return true;
 }

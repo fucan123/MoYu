@@ -50,7 +50,12 @@ bool Move::IsMoveEnd()
 bool Move::IsMove()
 {
 	if (m_pGame->m_GameAddr.MovSta) { // 此地址保存移动状态 0-未移动 1-在移动
-		return PtrToDword(m_pGame->m_GameAddr.MovSta) == 1;
+		try {
+			return PtrToDword(m_pGame->m_GameAddr.MovSta) == 1;
+		}
+		catch (...) {
+			printf("Move::IsMove函数|m_pGame->m_GameAddr.MovSta地址错误\n");
+		}
 	}
 
 	if (!m_dwLastX || !m_dwLastY)

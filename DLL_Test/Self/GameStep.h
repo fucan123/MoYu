@@ -15,14 +15,15 @@ typedef unsigned long long qword;
 
 enum STEP_CODE
 {
-	OP_UNKNOW  = 0,
-	OP_MOVE    = 1,
-	OP_NPC     = 2,
-	OP_SELECT  = 3,
-	OP_MAGIC   = 4,
-	OP_CRAZY   = 5,
-	OP_CLEAR   = 6,
-	OP_WAIT    = 7,
+	OP_UNKNOW  = 0, // 未知
+	OP_MOVE    = 1, // 移动
+	OP_NPC     = 2, // NPC对话
+	OP_SELECT  = 3, // 选择对话选项
+	OP_MAGIC   = 4, // 技能
+	OP_CRAZY   = 5, // 狂甩
+	OP_CLEAR   = 6, // 清怪
+	OP_PICKUP  = 7, // 捡物
+	OP_WAIT    = 8, // 等待
 };
 struct Point
 {

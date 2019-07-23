@@ -26,6 +26,10 @@ public:
 	void NPCTalk(DWORD no);
 	// NPC对话状态[对话框是否打开]
 	bool NPCTalkStatus();
+	// 提示框是否打开
+	bool TipBoxStatus();
+	// 关闭提示框
+	void CloseTipBox(int close=1);
 	// 等待对话框打开
 	bool WaitTalkBoxOpen();
 	// 获取NPCID

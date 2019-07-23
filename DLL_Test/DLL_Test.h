@@ -76,6 +76,8 @@ typedef struct
 
 
 DWORD WINAPI Run(LPVOID);
+DWORD WINAPI KeyBoardHook(LPVOID);
+LRESULT CALLBACK KeyBoardHookProc(int nCode, WPARAM wParam, LPARAM lParam);
 LONG WINAPI VectorHandler(struct _EXCEPTION_POINTERS* ExceptionInfo);
 VOID SetVectorBreak(PVOID address, bool set=true);
 DWORD WINAPI MyMove(DWORD x, DWORD y);

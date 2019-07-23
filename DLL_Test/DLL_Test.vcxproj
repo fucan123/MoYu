@@ -163,6 +163,7 @@
     <ClInclude Include="Self\Item.h" />
     <ClInclude Include="Self\Magic.h" />
     <ClInclude Include="Self\Move.h" />
+    <ClInclude Include="Self\Pet.h" />
     <ClInclude Include="Self\Talk.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -178,6 +179,7 @@
     <ClCompile Include="Self\Item.cpp" />
     <ClCompile Include="Self\Magic.cpp" />
     <ClCompile Include="Self\Move.cpp" />
+    <ClCompile Include="Self\Pet.cpp" />
     <ClCompile Include="Self\Talk.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

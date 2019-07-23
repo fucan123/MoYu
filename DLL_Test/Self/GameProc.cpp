@@ -6,6 +6,7 @@
 #include "GuaiWu.h"
 #include "Talk.h"
 #include "Magic.h"
+#include "Pet.h"
 
 #include <My/Common/mystring.h>
 #include <My/Common/func.h>
@@ -24,6 +25,10 @@ GameProc::GameProc(Game* pGame)
 // 运行
 void GameProc::Run()
 {
+	m_bStop = false;
+	m_bPause = false;
+	m_bReStart = false;
+
 	char log[64];
 	//INLOGVARN(32, "反：%.2f", asin(0.5f));
 #if RUNRUN == 0
@@ -48,16 +53,17 @@ void GameProc::Run()
 		}
 		Sleep(500);
 	}
+
+	DWORD dwPetNo[] = { 0, 1, 3 };
+	m_pGame->m_pPet->PetOut(dwPetNo, sizeof(dwPetNo)/sizeof(DWORD), true);
+
+	printf("开始\n");
 	//Drv_MouseMovAbsolute(m_pGame->m_GameWnd.Rect.left, m_pGame->m_GameWnd.Rect.top);
 	//return;
 	//INLOGVARN(32, "Step:%08x Stop:%d", step, m_bStop);
 	int start_time = time(nullptr);
 	_step_* step;
 	while (step = m_pGameStep->Current()) {
-		while (m_bStop) {
-			Sleep(1000);
-		}
-
 		m_pStep = step;
 
 		switch (step->OpCode)
@@ -79,7 +85,13 @@ void GameProc::Run()
 			Magic();
 			break;
 		case OP_CRAZY:
-			//KeyDown(step->Keys);
+			Crazy();
+			break;
+		case OP_CLEAR:
+			Clear();
+			break;
+		case OP_PICKUP:
+			PickUp();
 			break;
 		case OP_WAIT:
 			printf("等待:%d %08X\n", step->WaitMs/1000, step->Magic);
@@ -89,30 +101,45 @@ void GameProc::Run()
 			break;
 		}
 
-		while (true) {
+		do {
+			do {
+				if (m_bStop || m_bReStart)
+					goto end;
+				if (m_bPause)
+					Sleep(500);
+			} while (m_bPause);
+				
 			Sleep(100);
 			if (IsNeedAddLife()) {
-				printf("加血.\n");
 				AddLife();
 			}
+			do {
+				// 丢弃一些药品
+				m_pGame->m_pItem->DropSelfItemByType(速效治疗药水, 6);
+				m_pGame->m_pItem->DropSelfItemByType(速效治疗包,   5);
+				// 复活所有没有血量宠物
+				m_pGame->m_pPet->Revive();
+			} while (false);
+
 			if (StepIsComplete()) { // 已完成此步骤
+				if (m_pGame->m_pTalk->NPCTalkStatus()) // 对话框还是打开的
+					m_pGame->m_pTalk->NPCTalk(0xff);   // 关掉它
+				if (m_pGame->m_pTalk->TipBoxStatus())  // 提示框是否打开
+					m_pGame->m_pTalk->CloseTipBox();   // 关掉它
+
+				m_pGameStep->CompleteExec();
 				break;
 			}
-		}
-		m_pGameStep->CompleteExec();
-
-#if 0
-		int ms = 100;
-		if (m_pGameStep->CurrentCode() == OP_MOVE || m_pGameStep->NextCode() == OP_MOVE) {
-			ms = 25;
-		}
-		Sleep(ms);
-		//break;
-#endif
+		} while (true);
 	}
-
+end:
 	int second = time(nullptr) - start_time;
 	printf("完成，总用时:%02d分%02d秒\n", second/60, second%60);
+	if (m_bReStart) {
+		m_pGameStep->m_Step.Release(1);
+		printf("GameProc::Run重新加载...\n");
+		Run();
+	}
 }
 
 // 步骤是否已执行完毕
@@ -132,6 +159,7 @@ bool GameProc::StepIsComplete()
 		break;
 	case OP_NPC:
 		result = m_pGame->m_pTalk->NPCTalkStatus();
+		result = true;
 		if (!result) { // 对话框没有打开
 			m_pGame->m_pTalk->NPC(m_pStep->NPCName);
 		}
@@ -143,9 +171,14 @@ bool GameProc::StepIsComplete()
 		result = true;
 		break;
 	case OP_CRAZY:
-		result = true;
-		break;
+		if (!m_bIsCrazy) {
+			result = true;
+			break;
+		}
 	case OP_CLEAR:
+		result = m_pGame->m_pGuaiWu->Clear(m_pStep->Magic, 8, 8); // 清除5*5范围内的怪物
+		break;
+	case OP_PICKUP:
 		result = true;
 		break;
 	case OP_WAIT:
@@ -180,11 +213,14 @@ void GameProc::Select()
 		if (i > 0) {
 			Sleep(500);
 			m_pGame->m_pTalk->WaitTalkBoxOpen();
+			if (IsNeedAddLife()) {
+				AddLife();
+			}
 		}
 	}
 }
 
-// 鼠标移动
+// 技能
 void GameProc::Magic()
 {
 	if (m_pStep->WaitMs) { // 需要等待冷却
@@ -200,20 +236,29 @@ void GameProc::Magic()
 	m_pGame->m_pMagic->UseMagic(m_pStep->Magic, x, y);
 }
 
-// 按键
-void GameProc::KeyDown(unsigned char* keys)
+// 狂甩
+void GameProc::Crazy()
 {
-	while (*keys) {
-		INLOGVARN(16, "->按键：%d", *keys);
-
-		Drv_KeyDown(*keys);
-		Sleep(25);
-		Drv_KeyUp(*keys);
-
-		keys++;
-		Sleep(800);
+	m_bIsCrazy = m_pStep->Magic == 未知技能 ? false : true;
+	m_CrazyMagic = m_pStep->Magic;
+	if (m_bIsCrazy) {
+		printf("开启狂甩模式\n");
 	}
-	m_pGameStep->CompleteExec();
+	else {
+		printf("狂甩模式结束\n");
+	}
+}
+
+// 清怪
+void GameProc::Clear()
+{
+}
+
+// 捡物
+void GameProc::PickUp()
+{
+	ITEM_TYPE items[] = { 速效圣兽灵药 };
+	m_pGame->m_pItem->PickUpItem(items, sizeof(items) / sizeof(ITEM_TYPE));
 }
 
 // 等待
@@ -252,19 +297,6 @@ void GameProc::Wait(DWORD ms)
 // 需要重新移动
 bool GameProc::IsNeedReMove()
 {
-	if (!m_pStep->Exec)
-		return true;
-
-	if (m_iCoorX == m_iMovCoorX && m_iCoorY == m_iMovCoorY) {   // 移动到指定坐标
-		//INLOG(">>移动到指定位置.");
-		return true;
-	}
-	if (m_pGameStep->GetHasExecMs(m_pStep) >= ONE_MOV_MAX_MS) { // 移动时间超过允许时间
-		return true;
-	}
-	if (!m_pGame->IsMove()) { // 已停止
-		return true;
-	}
 	return false;
 }
 
@@ -386,6 +418,8 @@ bool GameProc::ReadBag()
 // 是否需要加血量
 bool GameProc::IsNeedAddLife()
 {
+	if (getmillisecond() < (m_i64AddLifeTime + 1500)) // 1秒内不重复加
+		return false;
 	if (!ReadLife())
 		return false;
 	if (m_iLife == 0)
@@ -413,9 +447,14 @@ void GameProc::AddLife()
 			if (!add) {
 				Sleep(200);
 				m_pGame->m_pItem->UseSelfItemByType(速效治疗药水);
+				add = true;
 			}
 		}
 	}
+	if (add == true) {
+		printf("加血.\n");
+		m_i64AddLifeTime = getmillisecond();
+	}	
 }
 
 // 停止

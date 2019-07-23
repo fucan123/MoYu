@@ -97,6 +97,7 @@ bool GameStep::InitSteps()
 
 		//Explode arr("#", data);
 		//char* text = arr.GetValue(0);
+		printf("%s", data);
 		Explode explode(" ", trim(data));
 		if (explode.GetCount() >= 2) {
 			char* cmd = explode.GetValue(0);
@@ -107,48 +108,58 @@ bool GameStep::InitSteps()
 			if (*cmd == '=') {
 				break;
 			}
-				
-			InitStep(step);
-			step.OpCode = TransFormOP(cmd);
-			switch (step.OpCode)
-			{
-			case OP_MOVE:
-				if (!TransFormPos(explode[1], step))
+			try {
+				InitStep(step);
+				step.OpCode = TransFormOP(cmd);
+				switch (step.OpCode)
+				{
+				case OP_MOVE:
+					if (!TransFormPos(explode[1], step)) {
+						printf("GameStep::InitSteps.TransFormPos失败\n");
+						continue;
+					}
+					break;
+				case OP_NPC:
+					strcpy(step.NPCName, explode[1]);
+					break;
+				case OP_SELECT:
+					step.SelectNo = explode.GetValue2Int(1);
+					step.OpCount = explode.GetValue2Int(2);
+					if (step.OpCount == 0)
+						step.OpCount = 1;
+					break;
+				case OP_MAGIC:
+					TransFormMagic(explode, step);
+					break;
+				case OP_CRAZY:
+				case OP_CLEAR:
+					step.Magic = TransFormMagic(explode[1]);
+					break;
+				case OP_PICKUP:
+					break;
+				case OP_WAIT:
+					TransFormWait(explode, step);
+					break;
+				default:
 					continue;
-				break;
-			case OP_NPC:
-				strcpy(step.NPCName, explode[1]);
-				break;
-			case OP_SELECT:
-				step.SelectNo = explode.GetValue2Int(1);
-				step.OpCount = explode.GetValue2Int(2);
-				if (step.OpCount == 0)
-					step.OpCount = 1;
-				break;
-			case OP_MAGIC:
-				TransFormMagic(explode, step);
-				break;
-			case OP_CRAZY:
-			case OP_CLEAR:
-				step.Magic = TransFormMagic(explode[1]);
-				break;
-			case OP_WAIT:
-				TransFormWait(explode, step);
-				break;
-			default:
-				continue;
-				break;
-			}
+					break;
+				}
 
-			_step_* pStep = new _step_;
-			memcpy(pStep, &step, sizeof(_step_));
-			m_Step.Add(pStep);
-			i++;
+				_step_* pStep = new _step_;
+				memcpy(pStep, &step, sizeof(_step_));
+				m_Step.Add(pStep);
+				i++;
+			}
+			catch (...) {
+				printf("读取流程错误:%s\n", data);
+			}
 		}
 		//memcpy(p->cmd, data, length + 1); // 保存原字符命令
 	}
-	//printf("流程数量：%d\n", m_Link.Count());
+	printf("流程数量：%d\n", m_Step.Count());
 	ResetStep(index);
+
+	file.Close();
 	return true;
 }
 
@@ -192,13 +203,15 @@ bool GameStep::TransFormPos(const char* str, _step_& step)
 bool GameStep::TransFormMagic(Explode& line, _step_ & step)
 {
 	//printf("TransFormMagic\n");
-	int index = 2;
 	step.Magic = TransFormMagic(line[1]);
-	if (strstr(line[2], ",")) { // 参数是坐标
-		TransFormPos(line[2], step);
-		index++;
+	if (line.GetCount() > 2) {
+		int index = 2;
+		if (strstr(line[2], ",")) { // 参数是坐标
+			TransFormPos(line[2], step);
+			index++;
+		}
+		step.WaitMs = line.GetValue2Int(index) * 1000;
 	}
-	step.WaitMs = line.GetValue2Int(index) * 1000;
 	//printf("TransFormMagic End\n");
 
 	return true;
