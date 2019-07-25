@@ -37,22 +37,22 @@ DWORD Pet::Revive()
 {
 	DWORD dwCount = ReadPetList(0);
 	if (dwCount == 1) {
-		printf("使用【生命祈祷】\n");
-		m_pGame->m_pMagic->UseMagic(生命祈祷, m_GamePet[0].Id, 0); // 单个复活
+		printf("使用【生命祈祷】%08X\n", m_GamePet[0].Id);
+		m_pGame->m_pMagic->UseMagic(生命祈祷, 0, 0, m_GamePet[0].Id); // 单个复活
 	}
 	if (dwCount > 1) { // 有药使用药
 		if (m_pGame->m_pItem->GetSelfItemCountByType(速效圣兽灵药)) { // 拥有此药
 			m_pGame->m_pItem->UseSelfItemByType(速效圣兽灵药);
 		}
 		else { // 技能复活全部
-			printf("使用【神圣复苏】\n");
-			m_pGame->m_pMagic->UseMagic(神圣复苏, m_GamePet[0].Id, 0); // 全部复活
+			printf("使用【神圣复苏】%08X\n", m_GamePet[0].Id);
+			m_pGame->m_pMagic->UseMagic(神圣复苏, 0, 0, m_GamePet[0].Id); // 全部复活
 		}
 	}
 	if (dwCount > 0) {
 		printf("需要复活宠物数量:%d\n", dwCount);
 		for (DWORD i = 0; i < dwCount; i++) {
-			Sleep(100);
+			Sleep(200);
 			Game::Call_PetFuck(m_GamePet[i].Id); // 宠物合体[不需要出征了]
 		}
 	}
@@ -71,9 +71,9 @@ DWORD Pet::ReadPetList(DWORD life)
 			// edi=addr ebx=索引 esi=宠物ID
 			// mov ecx, [edi+ebx*4+0x2C0]
 			// ecx=血量
-			DWORD edx = PtrToDword(addr + i * 4 + 0x398);
+			DWORD edx = PtrToDword(addr + i * 4 + 0x3B0);
 			DWORD esi = PtrToDword(edx + 0x16C);
-			DWORD ecx = PtrToDword(addr + i * 4 + 0x2C0);
+			DWORD ecx = PtrToDword(addr + i * 4 + 0x2D0);
 			if (!esi) { // 没有ID
 				break;
 			}

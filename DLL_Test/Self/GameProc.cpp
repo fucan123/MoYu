@@ -91,6 +91,7 @@ void GameProc::Run()
 			Clear();
 			break;
 		case OP_PICKUP:
+			printf("捡拾物品\n");
 			PickUp();
 			break;
 		case OP_WAIT:
@@ -116,7 +117,7 @@ void GameProc::Run()
 			do {
 				// 丢弃一些药品
 				m_pGame->m_pItem->DropSelfItemByType(速效治疗药水, 6);
-				m_pGame->m_pItem->DropSelfItemByType(速效治疗包,   5);
+				m_pGame->m_pItem->DropSelfItemByType(速效治疗包,   8);
 				// 复活所有没有血量宠物
 				m_pGame->m_pPet->Revive();
 			} while (false);
@@ -145,6 +146,10 @@ end:
 // 步骤是否已执行完毕
 bool GameProc::StepIsComplete()
 {
+	if (m_bIsCrazy) {
+		m_pGame->m_pGuaiWu->Clear(m_CrazyMagic, 8, 8); // 清除5*5范围内的怪物
+	}
+
 	bool result = false;
 	switch (m_pStep->OpCode)
 	{
@@ -171,11 +176,10 @@ bool GameProc::StepIsComplete()
 		result = true;
 		break;
 	case OP_CRAZY:
-		if (!m_bIsCrazy) {
-			result = true;
-			break;
-		}
+		result = true;
+		break;
 	case OP_CLEAR:
+		printf("清怪:%08X\n", m_pStep->Magic);
 		result = m_pGame->m_pGuaiWu->Clear(m_pStep->Magic, 8, 8); // 清除5*5范围内的怪物
 		break;
 	case OP_PICKUP:
@@ -209,9 +213,10 @@ void GameProc::NPC()
 void GameProc::Select()
 {
 	for (DWORD i = 0; i < m_pStep->OpCount; i++) {
+		Sleep(1000);
 		m_pGame->m_pTalk->NPCTalk(m_pStep->SelectNo);
+
 		if (i > 0) {
-			Sleep(500);
 			m_pGame->m_pTalk->WaitTalkBoxOpen();
 			if (IsNeedAddLife()) {
 				AddLife();
@@ -418,7 +423,7 @@ bool GameProc::ReadBag()
 // 是否需要加血量
 bool GameProc::IsNeedAddLife()
 {
-	if (getmillisecond() < (m_i64AddLifeTime + 1500)) // 1秒内不重复加
+	if (getmillisecond() < (m_i64AddLifeTime + 1000)) // 1秒内不重复加
 		return false;
 	if (!ReadLife())
 		return false;

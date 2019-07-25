@@ -183,6 +183,8 @@ STEP_CODE GameStep::TransFormOP(const char* data)
 		return OP_CRAZY;
 	if (strcmp(data, "清怪") == 0)
 		return OP_CLEAR;
+	if (strcmp(data, "捡物") == 0)
+		return OP_PICKUP;
 	if (strcmp(data, "等待") == 0)
 		return OP_WAIT;
 }
@@ -234,6 +236,8 @@ MagicType GameStep::TransFormMagic(const char* str)
 		return 凤珠;
 	if (strcmp(str, "电击术") == 0)
 		return 电击术;
+	if (strcmp(str, "最终审判") == 0)
+		return 最终审判;
 
 	return 未知技能;
 }

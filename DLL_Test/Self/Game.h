@@ -1,6 +1,16 @@
 #pragma once
 #include "GameStruct.h"
 
+// 搜索模块中方法名称需要的信息
+typedef struct search_mod_func_msg
+{
+	const char*   Name;    // 搜索的名称
+	const char*   Substr;  // 名称中包含或不包含的字符串
+	DWORD         Flag;    // 0-不包含 1-包含
+	DWORD*        Save;    // 保存地址
+	const char*   Remark;  // 说明
+} SearchModFuncMsg;
+
 class GameProc;
 class Item;
 class Talk;
@@ -28,8 +38,8 @@ public:
 	void FindAllModAddr();
 	// 获取游戏所有CALL
 	void FindAllCall();
-	// 获取移动CALL
-	DWORD FindRunCall();
+	// 获取关闭提示框函数
+	DWORD FindCloseTipBoxCall();
 	// 获取模块地址
 	DWORD FindModAddr(LPCWSTR name);
 	// 读取坐标
@@ -62,6 +72,8 @@ public:
 	bool FindCallNPCTalkEsi();
 	// 获取宠物列表基地址
 	bool FindPetPtrAddr();
+	// 在某个模块中搜索函数
+	DWORD SearchFuncInMode(SearchModFuncMsg* info, HANDLE hMod);
 	// 在某个模块里面搜索
 	DWORD SearchInMod(LPCTSTR name, DWORD* codes, DWORD length, DWORD* save, DWORD save_length = 1, DWORD step = 1);
 	// 搜索特征码

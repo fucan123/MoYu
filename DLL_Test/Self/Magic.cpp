@@ -10,16 +10,18 @@ Magic::Magic(Game* p)
 	m_dwAttackGWId = 0;
 
 	m_dwMagicInfoCount = 0;
+	AddMagicInfo(电击术,   MCT_GWID, 1000);
 	AddMagicInfo(生命祈祷, MCT_GWID, 100);
 	AddMagicInfo(神圣复苏, MCT_GWID, 80000);
 	AddMagicInfo(星陨,    MCT_POS,  31000);
 	AddMagicInfo(影魂契约, MCT_POS,  56000);
 	AddMagicInfo(诸神裁决, MCT_POS,  500);
 	AddMagicInfo(虚无空间, MCT_POS,  31000);
+	AddMagicInfo(最终审判, MCT_POS,  151000);
 }
 
 // 使用技能
-bool Magic::UseMagic(MagicType type, DWORD v, DWORD v2)
+bool Magic::UseMagic(MagicType type, DWORD x, DWORD y, DWORD id)
 {
 	MagicInfo* p = GetMagicInfo(type);
 	if (p == nullptr)
@@ -32,11 +34,11 @@ bool Magic::UseMagic(MagicType type, DWORD v, DWORD v2)
 	//printf("UseMagic:%d %d,%d %d\n", type, v, v2, p->CallType);
 	//return false;
 	if (p->CallType == MCT_POS) {
-		Game::Call_Magic(p->Type, v, v2);
+		Game::Call_Magic(p->Type, x, y);
 		return true;
 	}
 	if (p->CallType == MCT_GWID) {
-		Game::Call_Magic(p->Type, v);
+		Game::Call_Magic(p->Type, id);
 		return true;
 	}
 	return false;

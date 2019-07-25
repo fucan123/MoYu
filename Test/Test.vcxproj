@@ -149,7 +149,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>E:\CPP\MyLib\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>MyLib.lib</AdditionalDependencies>
+      <AdditionalDependencies>MyLib.lib;Dbghelp.lib</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>

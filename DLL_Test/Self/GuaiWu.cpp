@@ -13,6 +13,9 @@ GuaiWu::GuaiWu(Game * p)
 // 清理怪物
 bool GuaiWu::Clear(MagicType type, DWORD cx, DWORD cy)
 {
+	if (type == 未知技能)
+		return false;
+
 	m_bIsClear = true;
 	m_dwCX = cx;
 	m_dwCY = cy;
@@ -22,23 +25,26 @@ bool GuaiWu::Clear(MagicType type, DWORD cx, DWORD cy)
 			m_pGame->ReadGameMemory(0x10); // 获取怪物列表
 
 		if (!m_pAttack)
-			return true;
+			break;
 
 		try {
-			m_pGame->m_pMagic->UseMagic(type, m_pAttack->X, m_pAttack->Y);
+			printf("GuaiWu::Clear->UseMagic:%08X %d,%d\n", type, m_pAttack->X, m_pAttack->Y);
+			m_pGame->m_pMagic->UseMagic(type, m_pAttack->X, m_pAttack->Y, m_pAttack->Id);
 		}
 		catch (...) {
 			printf("GuaiWu::Clear怪物无效\n");
-			return true;
+			break;
 		}
-		Sleep(100);
+		Sleep(600);
 	}
+
+	m_bIsClear = false;
+	return true;
 }
 
 // 初始化被攻击的怪物
 void GuaiWu::InitAttack()
 {
-	m_bIsClear = false;
 	m_pAttack = nullptr;
 	m_i64AttackTime = 0;
 }
@@ -78,7 +84,7 @@ bool GuaiWu::ReadGuaiWu()
 	// 037D81B0
 	// 4:* 4:0x00 4:0xFFFFFFFF 4:0x01 4:0x00 4:0x00 4:* 4:0x00
 	DWORD codes[] = {
-		0x123469F0, 0x00000000, 0xFFFFFFFF, 0x00000001,
+		0x1234AA40, 0x00000000, 0xFFFFFFFF, 0x00000001,
 		0x00000000, 0x00000000, 0x1234F320, 0x00000000
 	};
 
@@ -98,7 +104,7 @@ bool GuaiWu::ReadGuaiWu()
 			//}
 			try {
 				GameGuaiWu* pGuaiWu = (GameGuaiWu*)address[i];
-				printf("怪物地址:%08X\n", pGuaiWu);
+				//printf("怪物地址:%08X\n", pGuaiWu);
 				//continue;
 				if (pGuaiWu->X > 0 && pGuaiWu->Y > 0 && pGuaiWu->Type) {
 					char* name = (char*)((DWORD)address[i] + 0x520);
@@ -109,7 +115,9 @@ bool GuaiWu::ReadGuaiWu()
 					if (m_bIsClear) { // 清怪
 						DWORD cx = abs((int)m_pGame->m_dwX - (int)pGuaiWu->X);
 						DWORD cy = abs((int)m_pGame->m_dwY - (int)pGuaiWu->Y);
+						printf("%d,%d %d,%d\n", cx, cy, m_dwCX, m_dwCY);
 						if (cx <= m_dwCX && cy <= m_dwCY) { // 在攻击范围内
+							printf("选择攻击怪物:%08X\n", pGuaiWu->Id);
 							m_pAttack = pGuaiWu;
 							return false;
 						}
@@ -147,12 +155,17 @@ bool GuaiWu::ReadGuaiWu()
 // 获取怪物当前血量
 DWORD GuaiWu::GetLife(GameGuaiWu* p)
 {
+	// 搜索方式:CE找出怪物血量, 下访问断点->OD访问地址下断点, 调用堆栈返回到CPlayer::GetData->调试即可
+	// 直接得到CPlayer::GetData里面查看
 	__asm {
-		mov eax, dword ptr[p]
-		add eax, 0x15CC // 偏移0x15CC处为血量指针+0x0C
-		mov eax, [eax]
-		add eax, 0x0C   // 保存血量指针的指针
-		mov eax, [eax]  // 血量指针
-		mov eax, [eax]  // 血量
+		push ebp
+		mov  ebp, dword ptr p
+		mov  ebp, [ebp + 0x15FC]    // mov ecx,dword ptr ds:[edx+0x15FC]
+		mov  esi, [ebp + 0x8]       // mov esi,dword ptr ss:[ebp+0x8]
+		sub  esi, 1                 // sub esi,ecx[ecx应该固定是1]
+		dec  esi                    // dec esi
+		mov  eax, [ebp + 0xC]       // mov eax,dword ptr ss:[ebp+0xC]
+		mov  eax, [eax + esi * 8]   // 血量
+		pop  ebp
 	}
 }

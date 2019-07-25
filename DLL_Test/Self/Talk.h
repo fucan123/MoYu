@@ -29,7 +29,7 @@ public:
 	// 提示框是否打开
 	bool TipBoxStatus();
 	// 关闭提示框
-	void CloseTipBox(int close=1);
+	void CloseTipBox(int close=0);
 	// 等待对话框打开
 	bool WaitTalkBoxOpen();
 	// 获取NPCID

@@ -26,7 +26,7 @@ public:
 	// ...
 	Magic(Game* p);
 	// 使用技能
-	bool UseMagic(MagicType type, DWORD v, DWORD v2);
+	bool UseMagic(MagicType type, DWORD x, DWORD y, DWORD id=0);
 	// 检查冷却时间[allow_ms=允许最大还剩此冷却]
 	bool CheckCd(MagicType type, DWORD allow_ms=0);
 	// 获取技能信息

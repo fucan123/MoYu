@@ -14,13 +14,14 @@ Item::Item(Game * p)
 // 读取自己拥有物品
 DWORD Item::ReadSelfItems(GameSelfItem ** save, DWORD save_length)
 {
+	// 搜索方法->CE查找物品数量->下访问断点, 获得基址->基址下访问断点得到偏移
 	DWORD* pItem = NULL, dwCount = 0;
 	try {
 		__asm
 		{
 			mov eax, dword ptr ds : [BASE_DS_OFFSET]
 			mov eax, [eax]
-			mov eax, [eax + 0x21DC]     // [eax+0x10]为背包物品地址 是一个数组 长度为[eax+0x30]
+			mov eax, [eax + 0x2234]     // [eax+0x10]为背包物品地址 是一个数组 长度为[eax+0x30]
 			mov edx, [eax + 0x10]       // [eax+0x10]物品地址指针
 			mov dword ptr[pItem], edx
 			mov edx, [eax + 0x30]       // 物品数量
@@ -156,12 +157,12 @@ DWORD Item::ReadGroundItems(GameGroundItem** save, DWORD save_length)
 		if (dwCount == 0 || dwCount > 128)
 			return 0;
 
+		printf("[%d]地面物品数量：%d\n", (int)time(nullptr), dwCount);
 		dwCount = 0;
 		//printf("\n---------------------------\n");
-		printf("[%d]地面物品数量：%d\n", (int)time(nullptr), dwCount);
 		for (DWORD* p = pItemsBegin; p < pItemsEnd; p++) {
 			GameGroundItem* pItem = (GameGroundItem*)(*p);
-			if (!pItem || pItem->Id == 0xFFFFFFFF)
+			if (!pItem || pItem->Id == 0xFFFFFFFF || !pItem->X || !pItem->Y)
 				continue;
 
 			save[dwCount] = pItem;
@@ -199,6 +200,7 @@ DWORD Item::PickUpItem(ITEM_TYPE* items, DWORD length)
 	GameGroundItem* pItems[32];
 	DWORD dwCount = ReadGroundItems(pItems, sizeof(pItems) / sizeof(GameGroundItem*));
 	try {
+		printf("周围物品数量:%d\n", dwCount);
 		for (DWORD i = 0; i < dwCount; i++) {
 			for (DWORD j = 0; j < length; j++) {
 				if (items[j] == pItems[i]->Type) {     // 是要捡起来的物品
