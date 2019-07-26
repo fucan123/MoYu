@@ -21,7 +21,7 @@ public:
 	// NPC
 	void NPC(DWORD npc_id);
 	// NPC
-	void NPC(const char* name);
+	DWORD NPC(const char* name);
 	// NPC对话选择项
 	void NPCTalk(DWORD no);
 	// NPC对话状态[对话框是否打开]

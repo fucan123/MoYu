@@ -87,6 +87,12 @@ public:
 	bool m_bIsCrazy = false;
 	// 狂甩技能
 	MagicType m_CrazyMagic;
+	// 上一次执行步骤的相关信息
+	struct {
+		DWORD NPCId; // NPCId
+		DWORD MvX;   // 移动X
+		DWORD MvY;   // 移动Y
+	} m_stLastStepInfo;
 	// 人物坐标
 	DWORD   m_iCoorX = 0;
 	DWORD   m_iCoorY = 0;

@@ -24,11 +24,13 @@ void Talk::NPC(DWORD npc_id)
 }
 
 // NPC
-void Talk::NPC(const char* name)
+DWORD Talk::NPC(const char* name)
 {
 	DWORD npc_id = GetNPCId(name);
 	if (npc_id)
 		NPC(npc_id);
+
+	return npc_id;
 }
 
 // NPC对话选择项
@@ -72,7 +74,7 @@ bool Talk::WaitTalkBoxOpen()
 {
 	__int64 ms = getmillisecond();
 	while (!NPCTalkStatus()) {
-		if (getmillisecond() > (ms + 2000)) { // 超过3秒
+		if (getmillisecond() > (ms + 3000)) { // 超过3秒
 			return false;
 		}
 		Sleep(100);

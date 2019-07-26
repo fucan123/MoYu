@@ -118,7 +118,7 @@ void Game::FindAllCall()
 		{"?KillEudenmon@CHero",    NULL,  0, &m_GameCall.KillEudenmon,     "宠物召回"},
 		{"?AttachEudemon@CHero",   NULL,  0, &m_GameCall.AttachEudemon,    "宠物合体"},
 		{"?UnAttachEudemon@CHero", NULL,  0, &m_GameCall.UnAttachEudemon,  "宠物解体"},
-		{"?SetRealLife@CPlayer",   NULL,  0, &m_GameCall.SetRealLife,      "设置真实血量"},
+		{"?GetData@CPlayer",       NULL,  0, &m_GameCall.SetRealLife,      "CPlayer::GetData"},
 	};
 	DWORD length = sizeof(info) / sizeof(SearchModFuncMsg);
 	for (DWORD i = 0; i < length; i++) {
@@ -140,7 +140,7 @@ DWORD Game::FindCloseTipBoxCall()
 
 	DWORD address = 0;
 	if (SearchInMod(L"soul.exe", codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
-		printf("CALL关闭提示框函数地址:%08X\n", address);
+		printf("Call关闭提示框函数地址:%08X\n", address);
 	}
 	return address;
 }
@@ -153,6 +153,12 @@ DWORD Game::FindModAddr(LPCWSTR name)
 		hMod = GetModuleHandle(name);
 	}
 	return (DWORD)hMod;
+}
+
+// 比较登录帐号
+bool Game::CmpLoginAccount(const char* name)
+{
+	return strcmp(name, (const char*)(m_GameModAddr.Mod3DRole+ADDR_ACCOUNT_NAME)) == 0;
 }
 
 // 获取坐标地址
@@ -426,7 +432,7 @@ DWORD Game::SearchInMod(LPCTSTR name, DWORD * codes, DWORD length, DWORD * save,
 	DWORD result = 0;
 	DWORD dwSize = 0;
 	HANDLE hMod = GetModuleBaseAddr(GetCurrentProcessId(), name, &dwSize);
-	printf("hMod:%08X %08X\n", hMod, dwSize);
+	//printf("hMod:%08X %08X\n", hMod, dwSize);
 
 	if (dwSize) {
 		DWORD page = 0x1000;
@@ -436,7 +442,7 @@ DWORD Game::SearchInMod(LPCTSTR name, DWORD * codes, DWORD length, DWORD * save,
 			m_dwReadSize = page;
 			if (ReadProcessMemory(m_hGameProcess, (LPVOID)m_dwReadBase, m_pReadBuffer, m_dwReadSize, NULL)) {
 				if (SearchCode(codes, length, save, save_length, step)) {
-					printf("SearchInMod.....\n");
+					//printf("SearchInMod.....\n");
 					result = save[0];
 					break;
 				}
@@ -898,7 +904,7 @@ void Game::Call_NPCTalk(int no)
 			push 0x00
 			mov esi, _esi
 			mov ecx, esi
-			mov eax, 0x00CE5C90
+			mov eax, 0x00CE6840
 			call eax
 		}
 	}

@@ -199,6 +199,8 @@ end:
 // 移动
 void GameProc::Move()
 {
+	m_stLastStepInfo.MvX = m_pStep->X;
+	m_stLastStepInfo.MvY = m_pStep->Y;
 	m_pGame->m_pMove->Run(m_pStep->X, m_pStep->Y);
 }
 
@@ -206,18 +208,30 @@ void GameProc::Move()
 void GameProc::NPC()
 {
 	// https://31d7f5.link.yunpan.360.cn/lk/surl_yL2uvtfBesv#/-0
-	m_pGame->m_pTalk->NPC(m_pStep->NPCName);
+	if (strcmp(m_pStep->NPCName, "上一个")) { // 对话上一个对了话的NPC
+		m_pGame->m_pTalk->NPC(m_stLastStepInfo.NPCId);
+	}
+	else {
+		m_stLastStepInfo.NPCId = m_pGame->m_pTalk->NPC(m_pStep->NPCName);
+	}
 }
 
 // 选择
 void GameProc::Select()
 {
-	for (DWORD i = 0; i < m_pStep->OpCount; i++) {
-		Sleep(1000);
+	if (!m_stLastStepInfo.NPCId) // 没有与NPC对话, 没必要再选择
+		return;
+
+	for (DWORD i = 1; i <= m_pStep->OpCount; i++) {
+		Sleep(500);
+		if (i < m_pStep->OpCount) { // 不是最后一次
+			if (!m_pGame->m_pTalk->WaitTalkBoxOpen()) {        // 等待对话框打开超时
+				m_pGame->m_pTalk->NPC(m_stLastStepInfo.NPCId); // 重新与NPC对话
+			}
+		}
 		m_pGame->m_pTalk->NPCTalk(m_pStep->SelectNo);
 
-		if (i > 0) {
-			m_pGame->m_pTalk->WaitTalkBoxOpen();
+		if (i > 1) {
 			if (IsNeedAddLife()) {
 				AddLife();
 			}
@@ -423,7 +437,7 @@ bool GameProc::ReadBag()
 // 是否需要加血量
 bool GameProc::IsNeedAddLife()
 {
-	if (getmillisecond() < (m_i64AddLifeTime + 1000)) // 1秒内不重复加
+	if (getmillisecond() < (m_i64AddLifeTime + 500)) // 1秒内不重复加
 		return false;
 	if (!ReadLife())
 		return false;

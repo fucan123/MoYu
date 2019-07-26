@@ -42,6 +42,8 @@ public:
 	DWORD FindCloseTipBoxCall();
 	// 获取模块地址
 	DWORD FindModAddr(LPCWSTR name);
+	// 比较登录帐号
+	bool CmpLoginAccount(const char* name);
 	// 读取坐标
 	bool ReadCoor(DWORD* x=NULL, DWORD* y=NULL);
 	// 读取生命值

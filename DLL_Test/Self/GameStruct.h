@@ -14,8 +14,10 @@
 #define MOD_3drole          L"3drole.dll"
 #define MOD_3dgamemap       L"3dgamemap.dll"
 #define MOD_sound           L"sound.dll"
-#define ADDR_COOR_X_OFFSET  0x11EC154     // X坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_COOR_Y_OFFSET  0x11EC158     // Y坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_ACCOUNT_NAME   0x11BD5E4     // 登录帐号名称
+#define ADDR_ROLE_NAME      0x11B8EDC     // 游戏角色名称
+#define ADDR_COOR_X_OFFSET  0x11EC164     // X坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_COOR_Y_OFFSET  0x11EC168     // Y坐标地址在模块里面的偏移[MOD_3drole]
 #define ADDR_MOV_STA_OFFSET 0x4A7A60      // 人物移动状态在模块里面偏移[MOD_sound]
 #define ADDR_TALKBOX_PTR    0x10A97C8     // 对话框打开状态地址指针[Soul.exe+CA97C8]
 // mov eax,[edi+00005394] << EDI=05B7D020
@@ -45,7 +47,7 @@
 // CALL偏移
 enum CALL_DATA_OFFSET {
 	RUN_3drole = 0x621379,          // 人物移动函数 CHero::run(x, y, 0)
-	NPCTALK_EAX_3drole = 0x1327848, // NPC二级对话EAX数值
+	NPCTALK_EAX_3drole = 0x1327858, // NPC二级对话EAX数值
 	NPCTALK_EDI_3drole = 0xEF1E68,  // NPC二级对话EDI数值
 };
 // 0001933E 000193EC
