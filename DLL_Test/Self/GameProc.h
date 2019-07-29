@@ -28,7 +28,7 @@ public:
 	bool StepIsComplete();
 	// 移动
 	void Move();
-	// 点击
+	// NCP
 	void NPC();
 	// 选择
 	void Select();
@@ -44,18 +44,8 @@ public:
 	void Wait();
 	// 等待
 	void Wait(DWORD ms);
-	// 需要重新移动
-	bool IsNeedReMove();
-	// 点击
-	bool ClickEvent(int x, int y, int num, bool make = true);
-	// 计算实际要移动要的坐标
-	void CalcRealMovCoor();
-	// 制作点击坐标x
-	int MakeClickX(int& x, int& y, int dist_x);
-	// 制作点击坐标y
-	int MakeClickY(int& x, int& y, int dist_y);
-	// 制作点击坐标
-	int MakeClickCoor(int& x, int& y, int dist_x, int dist_y);
+	// 是否在副本
+	bool IsInFB();
 	// 读取人物坐标
 	bool ReadCoor();
 	// 读取人物血量
@@ -89,9 +79,10 @@ public:
 	MagicType m_CrazyMagic;
 	// 上一次执行步骤的相关信息
 	struct {
-		DWORD NPCId; // NPCId
-		DWORD MvX;   // 移动X
-		DWORD MvY;   // 移动Y
+		DWORD     MvX;   // 移动X
+		DWORD     MvY;   // 移动Y
+		DWORD     NPCId; // NPCId
+		MagicType Magic; // 技能
 	} m_stLastStepInfo;
 	// 人物坐标
 	DWORD   m_iCoorX = 0;

@@ -26,10 +26,22 @@ void Talk::NPC(DWORD npc_id)
 // NPC
 DWORD Talk::NPC(const char* name)
 {
-	DWORD npc_id = GetNPCId(name);
-	if (npc_id)
-		NPC(npc_id);
-
+	printf("Talk::NPC:%s\n", name);
+	DWORD npc_id = 0;
+	for (int i = 1; i <= 3; i++) {
+		printf("第%d次寻找NPC\n", i);
+		npc_id = GetNPCId(name);
+		if (npc_id) {
+			NPC(npc_id);
+			if (WaitTalkBoxOpen()) {
+				break;
+			}
+			else {
+				printf("NPC可能无效.\n");
+			}
+		}
+		Sleep(500);
+	}
 	return npc_id;
 }
 
@@ -49,6 +61,13 @@ bool Talk::NPCTalkStatus()
 		printf("Talk::NPCTalkStatus失败\n");
 		return false;
 	}
+}
+
+// 是否选择邀请队伍
+bool Talk::CheckTeamSta()
+{
+	// +29C0是TeamChkSta偏移头 +100是选择框状态
+	return PtrToDword(m_pGame->m_GameAddr.TalKBoxSta + 0x29C0 + 0x100) != 0;
 }
 
 // 提示框是否打开
@@ -97,6 +116,7 @@ DWORD Talk::GetNPCId(const char* name)
 // 读取怪物
 bool Talk::ReadNPC()
 {
+	//printf("搜索NPC\n");
 	// 搜索方法:找到NPCID->CE搜索查找合适地址
 	// 4:0x03E5D678 4:* 4:* 4:* 4:* 4:0x00 4:0x00 4:0xFFFFFFDB
 	// 4:0x03D8C650 4:* 4:* 4:* 4:* 4:0x00 4:0x00 4:0xFFFFFFDB 4:0x00
@@ -112,6 +132,7 @@ bool Talk::ReadNPC()
 		DWORD num = 0, near_index = 0xff, near_dist = 0;
 		for (DWORD i = 0; i < count; i++) {
 			try {
+				DWORD dwRepeatId = 0;
 				char* name = (char*)((DWORD)address[i] + 0x50);
 				DWORD id = PtrToDword(address[i] + 0xD0);
 				GameNPC* pNPC = (GameNPC*)address[i];
@@ -125,7 +146,9 @@ bool Talk::ReadNPC()
 						bool no_search = true;
 						for (DWORD j = 0; j < m_dwIsSearchCount; j++) { // 已经搜索了的 不再使用
 							if (m_ListIsSearch[j] == id) {
+								printf("NPCID:%08X重复\n", id);
 								no_search = false;
+								dwRepeatId = id;
 								break;
 							}
 						}
@@ -138,6 +161,8 @@ bool Talk::ReadNPC()
 						}
 					}
 				}
+				if (dwRepeatId)
+					m_dwSearchNPCId = dwRepeatId;
 			}
 			catch (void*) {
 			}

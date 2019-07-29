@@ -13,6 +13,9 @@ Move::Move(Game * p)
 // 移动
 void Move::Run(DWORD x, DWORD y)
 {
+	if ((getmillisecond() - m_i64MvTime) < 100) // 100毫秒内不重新移动
+		return;
+
 	SetMove(x, y);
 	Game::Call_Run(x, y);
 }

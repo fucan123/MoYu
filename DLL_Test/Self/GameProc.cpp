@@ -26,9 +26,13 @@ GameProc::GameProc(Game* pGame)
 void GameProc::Run()
 {
 	m_bStop = false;
-	m_bPause = false;
+	m_bPause = true;
 	m_bReStart = false;
 
+	printf("按C键开始\n");
+	while (m_bPause) {
+		Sleep(500);
+	}
 	char log[64];
 	//INLOGVARN(32, "反：%.2f", asin(0.5f));
 #if RUNRUN == 0
@@ -45,7 +49,7 @@ void GameProc::Run()
 	while (true) {
 		int c = exec_time - time(nullptr);
 		if (c >= 0 && n != c) {
-			printf("准备开始执行，请别操作.[%d秒]\n", c);
+			printf("准备开始执行[%d秒]\n", c);
 		}
 		n = c;
 		if (c < 0) {
@@ -69,19 +73,19 @@ void GameProc::Run()
 		switch (step->OpCode)
 		{
 		case OP_MOVE:
-			printf("正在移动:%d.%d\n", step->X, step->Y);
+			printf("流程->正在移动:%d.%d\n", step->X, step->Y);
 			Move();
 			break;
 		case OP_NPC:
-			printf("NPC:%s\n", step->NPCName);
+			printf("流程->NPC:%s\n", step->NPCName);
 			NPC();
 			break;
 		case OP_SELECT:
-			printf("选项:%d\n", step->SelectNo);
+			printf("流程->选项:%d\n", step->SelectNo);
 			Select();
 			break;
 		case OP_MAGIC:
-			printf("技能:%08X\n", step->Magic);
+			printf("流程->技能:%08X\n", step->Magic);
 			Magic();
 			break;
 		case OP_CRAZY:
@@ -91,17 +95,18 @@ void GameProc::Run()
 			Clear();
 			break;
 		case OP_PICKUP:
-			printf("捡拾物品\n");
+			printf("流程->捡拾物品\n");
 			PickUp();
 			break;
 		case OP_WAIT:
-			printf("等待:%d %08X\n", step->WaitMs/1000, step->Magic);
+			printf("流程->等待:%d %08X\n", step->WaitMs/1000, step->Magic);
 			Wait();
 			break;
 		default:
 			break;
 		}
 
+		Sleep(100);
 		do {
 			do {
 				if (m_bStop || m_bReStart)
@@ -110,7 +115,7 @@ void GameProc::Run()
 					Sleep(500);
 			} while (m_bPause);
 				
-			Sleep(100);
+			Sleep(10);
 			if (IsNeedAddLife()) {
 				AddLife();
 			}
@@ -118,8 +123,11 @@ void GameProc::Run()
 				// 丢弃一些药品
 				m_pGame->m_pItem->DropSelfItemByType(速效治疗药水, 6);
 				m_pGame->m_pItem->DropSelfItemByType(速效治疗包,   8);
-				// 复活所有没有血量宠物
-				m_pGame->m_pPet->Revive();
+				if (m_pStep->OpCode != OP_MOVE) {
+					// 复活所有没有血量宠物
+					m_pGame->m_pPet->Revive();
+				}
+				
 			} while (false);
 
 			if (StepIsComplete()) { // 已完成此步骤
@@ -127,7 +135,7 @@ void GameProc::Run()
 					m_pGame->m_pTalk->NPCTalk(0xff);   // 关掉它
 				if (m_pGame->m_pTalk->TipBoxStatus())  // 提示框是否打开
 					m_pGame->m_pTalk->CloseTipBox();   // 关掉它
-
+				
 				m_pGameStep->CompleteExec();
 				break;
 			}
@@ -204,11 +212,39 @@ void GameProc::Move()
 	m_pGame->m_pMove->Run(m_pStep->X, m_pStep->Y);
 }
 
-// 点击
+// NPC
 void GameProc::NPC()
 {
+	// 500 - 930
+	// 560 - 1120
 	// https://31d7f5.link.yunpan.360.cn/lk/surl_yL2uvtfBesv#/-0
-	if (strcmp(m_pStep->NPCName, "上一个")) { // 对话上一个对了话的NPC
+	if (0
+		|| strcmp(m_pStep->NPCName, "贪求缚灵柱") == 0
+		|| strcmp(m_pStep->NPCName, "怨恨缚灵柱") == 0
+		|| strcmp(m_pStep->NPCName, "迷幻缚灵柱") == 0
+		|| strcmp(m_pStep->NPCName, "离爱缚灵柱") == 0) {
+		printf("NPC特殊:%s\n", m_pStep->NPCName);
+		char gw_name[16];
+		int length = strstr(m_pStep->NPCName, "缚灵柱") - m_pStep->NPCName;
+		if (length > 0) {
+			DWORD x = 8, y = 8;
+			memset(gw_name, 0, sizeof(gw_name));
+			memcpy(gw_name, m_pStep->NPCName, length);
+			strcat(gw_name, "之魂");
+			printf("要搜索的怪物:%s %d,%d\n", gw_name, x, y);
+			__int64 t = getmillisecond();
+			while (!m_pGame->m_pGuaiWu->IsInArea(gw_name, x, y)) { // 怪物未来
+				if ((getmillisecond() - t) > 10000) {
+					printf("10秒还未获取到怪物, 忽略\n");
+					break;
+				}
+				Sleep(100);
+			}
+			m_pGame->m_pMagic->UseMagic(m_stLastStepInfo.Magic, x, y);
+			Sleep(200);
+		}
+	}
+	else if (strcmp(m_pStep->NPCName, "上一个") == 0) { // 对话上一个对了话的NPC
 		m_pGame->m_pTalk->NPC(m_stLastStepInfo.NPCId);
 	}
 	else {
@@ -223,12 +259,16 @@ void GameProc::Select()
 		return;
 
 	for (DWORD i = 1; i <= m_pStep->OpCount; i++) {
-		Sleep(500);
+		Sleep(800);
 		if (i < m_pStep->OpCount) { // 不是最后一次
 			if (!m_pGame->m_pTalk->WaitTalkBoxOpen()) {        // 等待对话框打开超时
+				printf("重新对话NPC\n");
 				m_pGame->m_pTalk->NPC(m_stLastStepInfo.NPCId); // 重新与NPC对话
+				if (m_pGame->m_pTalk->WaitTalkBoxOpen()) // NPC有效
+					i--;
 			}
 		}
+		printf("选择:%d\n", i);
 		m_pGame->m_pTalk->NPCTalk(m_pStep->SelectNo);
 
 		if (i > 1) {
@@ -253,6 +293,7 @@ void GameProc::Magic()
 		m_pGame->ReadCoor(&x, &y);
 	}
 	m_pGame->m_pMagic->UseMagic(m_pStep->Magic, x, y);
+	m_stLastStepInfo.Magic = m_pStep->Magic;
 }
 
 // 狂甩
@@ -287,6 +328,7 @@ void GameProc::Wait()
 		while (!m_pGame->m_pMagic->CheckCd(m_pStep->Magic, m_pStep->WaitMs)) {
 			Sleep(100);
 		}
+		m_stLastStepInfo.Magic = m_pStep->Magic;
 	}
 	else { // 等待
 		Wait(m_pStep->WaitMs);
@@ -301,113 +343,24 @@ void GameProc::Wait(DWORD ms)
 	while (true) {
 		int c = getmillisecond() - now_time;
 		c = (int)ms - c;
+		int ls = c / 1000;
 
-		if (c >= 0 && n != c) {
-			printf("等待%d秒，还剩%d秒\n", ms / 1000, c / 1000);
+		if (c >= 0 && n != ls) {
+			printf("等待%d秒，还剩%d秒\n", ms / 1000, ls);
 		}
 		if (c <= 0) {
 			break;
 		}
-		n = c;
+		n = ls;
 		Sleep(500);
 	}
 }
 
-// 需要重新移动
-bool GameProc::IsNeedReMove()
+// 是否在副本
+bool GameProc::IsInFB()
 {
-	return false;
-}
-
-bool GameProc::ClickEvent(int x, int y, int num, bool make)
-{
-	char log[64];
-
-	int i = 0;
-	while (i++ < num) {
-		int cx = x, cy = y;
-		if (make) {
-			//INLOG("MAKE.");
-			MakeClickCoor(cx, cy, x, y);
-		}
-		if (Drv_MouseMovAbsolute(cx, cy)) {
-			if (num > 1) {
-				INLOGVARP(log, "->点击[%d,%d] 屏幕坐标[%d,%d] 第%d/%d次", x, y, cx, cy, i, num);
-			}
-			else {
-				INLOGVARP(log, "->点击[%d,%d] 屏幕坐标[%d,%d]", x, y, cx, cy);
-			}
-
-			Sleep(50);
-#if 1
-			if (IsNeedAddLife()) {
-				AddLife();
-			}
-#endif
-			Drv_MouseLeftDown();
-			Sleep(25);
-			Drv_MouseLeftUp();
-			if (num > 1) {
-				Sleep(1500);
-			}
-		}
-		else {
-			INLOGVARP(log, "->移动鼠标失败[%d,%d]", cx, cy);
-		}
-		//Sleep(25);
-	}
-	return true;
-}
-
-// 计算实际要移动要的坐标
-void GameProc::CalcRealMovCoor()
-{
-	
-}
-
-// 制作点击坐标x
-int GameProc::MakeClickX(int& x, int& y, int dist_x)
-{
-	float left_x = (dist_x - m_iCoorX) * ONE_COOR_PIX * 1.25f;     // 要点击坐标差值
-	float mul_x = (90.f - 30.f) / 90.f;
-	float mul_y = 1.f - mul_x;
-
-	x = mul_x * left_x;
-	y = mul_y * left_x;
-
-	return 0;
-}
-
-// 制作点击坐标y
-int GameProc::MakeClickY(int& x, int& y, int dist_y)
-{
-	float left_y = (dist_y - m_iCoorY) * -1 * ONE_COOR_PIX * 1.25f;     // 要点击坐标差值
-	float mul_x = (90.f - 30.f) / 90.f;
-	float mul_y = 1.f - mul_x;
-
-	x += mul_x * left_y;
-	y += mul_y * left_y * -1;
-
-	//INLOGVARN(64, "!!!Click Y->%d,%d", x, y);
-	return 0;
-}
-
-// 制作点击坐标
-int GameProc::MakeClickCoor(int& x, int& y, int dist_x, int dist_y)
-{
-	int role_x_spos = m_pGame->m_GameWnd.Width / 2 + m_pGame->m_GameWnd.Rect.left; // 人物在屏幕的坐标
-	int role_y_spos = m_pGame->m_GameWnd.Height / 2 + m_pGame->m_GameWnd.Rect.top;
-
-	char log[64];
-	x = 0, y = 0;
-	MakeClickX(x, y, dist_x);
-	MakeClickY(x, y, dist_y);
-	//INLOGVARP(log, "!!!all[%.2f,%.2f] [%d,%d]", 0, 0, x, y);
-
-	x += role_x_spos;
-	y += role_y_spos;
-
-	return 0;// role_spos + coor_left * ONE_COOR_PIX;
+	ReadCoor();
+	return (m_iCoorX >= 200 && m_iCoorX <= 930) && (m_iCoorY >= 30 && m_iCoorY <= 1120);
 }
 
 // 读取人物坐标

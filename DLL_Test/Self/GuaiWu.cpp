@@ -7,7 +7,37 @@
 GuaiWu::GuaiWu(Game * p)
 {
 	m_pGame = p;
+	m_bSearchName = false;
 	InitAttack();
+}
+
+// 自身周围是否有怪物
+bool GuaiWu::HasInArea(DWORD cx, DWORD cy)
+{
+	m_bIsClear = true;
+	m_dwCX = cx;
+	m_dwCY = cy;
+	m_pGame->ReadGameMemory(0x10); // 获取怪物列表
+	m_bIsClear = false;
+	bool result = m_pAttack != nullptr;
+	InitAttack();
+	return result;
+}
+
+// 怪物是否在自身区域内 x,y=自身范围(IN),怪物坐标(OUT)
+bool GuaiWu::IsInArea(const char* name, IN OUT DWORD& x, IN OUT DWORD& y)
+{
+	//printf("要搜索的怪物:%s %d,%d\n", name, x, y);
+	m_dwCX = x;
+	m_dwCY = y;
+	strcpy(m_sSearChName, name);
+	m_bSearchName = true;
+	m_pGame->ReadGameMemory(0x10); // 获取怪物列表
+	x = m_dwCX;
+	y = m_dwCY;
+	bool result = m_bSearchName == false;
+	m_bSearchName == false;
+	return result;
 }
 
 // 清理怪物
@@ -112,9 +142,21 @@ bool GuaiWu::ReadGuaiWu()
 
 					printf("%02d[%08X].%s[%08X]: x:%X[%d] y:%X[%d] 类型:%X 血量:%d\n", i + 1, pGuaiWu, name, pGuaiWu->Id, pGuaiWu->X, pGuaiWu->X, pGuaiWu->Y, pGuaiWu->Y, pGuaiWu->Type, life);
 
+					DWORD cx = abs((int)m_pGame->m_dwX - (int)pGuaiWu->X);
+					DWORD cy = abs((int)m_pGame->m_dwY - (int)pGuaiWu->Y);
+
+					if (m_bSearchName) { // 搜索怪物名称
+						if (cx <= m_dwCX && cy <= m_dwCY) {         // 在搜索范围内
+							if (strcmp(name, m_sSearChName) == 0) { // 符合名字一致
+								printf("搜索到的怪物:%08X, %d,%d\n", pGuaiWu->Id, pGuaiWu->X, pGuaiWu->Y);
+								m_dwCX = pGuaiWu->X;
+								m_dwCY = pGuaiWu->Y;
+								m_bSearchName = false;
+								return false;
+							}
+						}
+					}
 					if (m_bIsClear) { // 清怪
-						DWORD cx = abs((int)m_pGame->m_dwX - (int)pGuaiWu->X);
-						DWORD cy = abs((int)m_pGame->m_dwY - (int)pGuaiWu->Y);
 						printf("%d,%d %d,%d\n", cx, cy, m_dwCX, m_dwCY);
 						if (cx <= m_dwCX && cy <= m_dwCY) { // 在攻击范围内
 							printf("选择攻击怪物:%08X\n", pGuaiWu->Id);
@@ -122,16 +164,6 @@ bool GuaiWu::ReadGuaiWu()
 							return false;
 						}
 					}
-#if 0
-					if (m_pGame->m_dwX && y) {
-						int cx = m_dwX - pGuaiWu->X, cy = y - pGuaiWu->Y;
-						DWORD cxy = abs(cx) + abs(cy);
-						if (near_index == 0xff || cxy < near_dist) {
-							near_index = i;
-							near_dist = cxy;
-						}
-					}
-#endif
 					num++;
 				}
 			}
@@ -140,14 +172,6 @@ bool GuaiWu::ReadGuaiWu()
 		}
 
 	}
-
-#if 0
-	m_dwGuaiWuCount += count;
-	if (m_dwGuaiWuCount > GUAIWU_MAX) {
-		printf("怪物数量达到上限:%d\n", m_dwGuaiWuCount);
-		m_dwGuaiWuCount = GUAIWU_MAX;
-	}
-#endif
 
 	return true;
 }

@@ -11,6 +11,10 @@ public:
 	// ...
 	GuaiWu(Game* p);
 
+	// 自身周围是否有怪物
+	bool HasInArea(DWORD cx, DWORD cy);
+	// 怪物是否在自身区域内 x,y=自身范围(IN),怪物坐标(OUT)
+	bool IsInArea(const char* name, IN OUT DWORD& x, IN OUT DWORD& y);
 	// 清理怪物
 	bool Clear(MagicType magic, DWORD cx, DWORD cy);
 	// 初始化被攻击的怪物
@@ -27,6 +31,10 @@ public:
 	// 游戏类
 	Game* m_pGame;
 
+	// 是否搜索怪物名称
+	bool m_bSearchName;
+	// 搜索的怪物名称
+	char m_sSearChName[16];
 	// 是否开启清理怪物
 	bool m_bIsClear;
 	// 攻击的X半径

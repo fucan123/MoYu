@@ -1,5 +1,6 @@
 #include "GameStep.h"
 #include "Game.h"
+#include <ShlObj_core.h>
 #include <stdio.h>
 #include <memory.h>
 #include <My/Common/mystring.h>
@@ -79,8 +80,13 @@ void GameStep::SetExec(bool v, _step_* step)
 // 初始化步骤
 bool GameStep::InitSteps()
 {
+	wchar_t path[255];
+	SHGetSpecialFolderPath(0, path, CSIDL_DESKTOPDIRECTORY, 0);
+	wcscat(path, L"\\MoYu\\魔域副本流程.txt");
+	char* cpath = wchar2char(path);
+	printf("刷副本流程文件:%s\n", cpath);
 	OpenTextFile file;
-	if (!file.Open("C:\\Users\\Administrator\\Desktop\\魔域副本流程.txt")) {
+	if (!file.Open(cpath)) {
 		printf("找不到'魔域副本流程.txt'文件！！！");
 		return false;
 	}
@@ -97,7 +103,7 @@ bool GameStep::InitSteps()
 
 		//Explode arr("#", data);
 		//char* text = arr.GetValue(0);
-		printf("%s", data);
+		//printf("%s", data);
 		Explode explode(" ", trim(data));
 		if (explode.GetCount() >= 2) {
 			char* cmd = explode.GetValue(0);

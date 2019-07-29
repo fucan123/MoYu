@@ -28,6 +28,8 @@ public:
 	~Game();
 	// 初始化
 	bool Init();
+	// 进程是否是魔域
+	bool IsMoYu();
 	// 运行
 	void Run();
 	// 停止
@@ -60,6 +62,8 @@ public:
 	bool FindMoveStaAddr();
 	// 获取对话框状态地址
 	bool FindTalkBoxStaAddr();
+	// 获取是否选择邀请队伍状态地址
+	bool FindTeamChkStaAddr();
 	// 获取提示框状态地址
 	bool FindTipBoxStaAddr();
 	// 获取生命地址
@@ -175,4 +179,6 @@ public:
 	void static Call_PetIn(int pet_id);
 	// 宠物合体
 	void static Call_PetFuck(int pet_id);
+	// 是否选择邀请队伍
+	void static Call_CheckTeam(int v=1);
 };

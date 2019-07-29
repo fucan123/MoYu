@@ -26,6 +26,8 @@ public:
 	void NPCTalk(DWORD no);
 	// NPC对话状态[对话框是否打开]
 	bool NPCTalkStatus();
+	// 是否选择邀请队伍
+	bool CheckTeamSta();
 	// 提示框是否打开
 	bool TipBoxStatus();
 	// 关闭提示框

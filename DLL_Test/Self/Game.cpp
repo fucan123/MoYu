@@ -66,8 +66,15 @@ bool Game::Init()
 {
 	m_hGameProcess = GetCurrentProcess();
 	FindAllModAddr();
-	FindAllCall();
 	FindCoorAddr();
+
+	printf("等待游戏数据初始化完毕...\n");
+	while (!PtrToDword(BASE_DS_OFFSET)) {
+		Sleep(1000);
+	}
+
+	printf("开始读取游戏数据...\n");
+	FindAllCall();
 	FindBagAddr();
 	if (!ReadGameMemory()) {
 		INLOG("无法获得人物血量地址！！！");
@@ -75,6 +82,15 @@ bool Game::Init()
 	}
 
 	return true;
+}
+
+// 进程是否是魔域
+bool Game::IsMoYu()
+{
+	wchar_t name[32] = { 0 };
+	GetProcessName(name, GetCurrentProcessId());
+	wprintf(L"%ws = %ws\n", name, L"soul.exe");
+	return wcsstr(name, L"soul.exe") != nullptr;
 }
 
 // 运行
@@ -151,6 +167,7 @@ DWORD Game::FindModAddr(LPCWSTR name)
 	HANDLE hMod = NULL;
 	while (hMod == NULL) {
 		hMod = GetModuleHandle(name);
+		wprintf(L"%ws:%08X\n", name, hMod);
 	}
 	return (DWORD)hMod;
 }
@@ -166,6 +183,11 @@ bool Game::FindCoorAddr()
 {
 	m_GameAddr.CoorX = m_GameModAddr.Mod3DRole + ADDR_COOR_X_OFFSET;
 	m_GameAddr.CoorY = m_GameModAddr.Mod3DRole + ADDR_COOR_Y_OFFSET;
+	while (PtrToDword(m_GameAddr.CoorX) == 0 || PtrToDword(m_GameAddr.CoorY) == 0) {
+		printf("等待进入游戏！！！\n");
+		Sleep(5000);
+	}
+	printf("人物坐标:%d,%d\n", PtrToDword(m_GameAddr.CoorX), PtrToDword(m_GameAddr.CoorY));
 	return true;
 }
 
@@ -207,6 +229,23 @@ bool Game::FindTalkBoxStaAddr()
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
 		m_GameAddr.TalKBoxSta = address + 0xA0;
 		printf("对话框状态地址：%08X\n", m_GameAddr.TalKBoxSta);
+	}
+	return address > 0;
+}
+
+// 获取是否选择邀请队伍状态地址
+bool Game::FindTeamChkStaAddr()
+{
+	// 29C0
+	// 4:0x00F37668 4:0x00000001 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000001 4:0x00000000
+	DWORD codes[] = {
+		0x00F37668, 0x00000001, 0x00000000, 0x00000000,
+		0x00000000, 0x00000001, 0x00000000, 0x00000022
+	};
+	DWORD address = 0; // 这个地址是Call选择是否邀请队伍函数中esi的值 mov ecx,dword ptr ds:[esi+0x1DC]
+	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
+		m_GameAddr.TeamChkSta = address; // +29C0是TeamChkSta偏移头 +100是选择框状态
+		printf("邀请队伍状态地址：%08X\n", m_GameAddr.TeamChkSta);
 	}
 	return address > 0;
 }
@@ -313,11 +352,13 @@ bool Game::FindBagAddr()
 		}
 		printf("物品指针:%08X 数量:%d\n", p, count);
 		m_GameAddr.Bag = p;
+
+		return p != 0;
 	}
 	catch (...) {
 		printf("Game::FindBagAddr失败!\n");
 	}
-	return true;
+	return false;
 }
 
 // 获得地面物品地址的保存地址
@@ -370,7 +411,7 @@ bool Game::FindPetPtrAddr()
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
 		m_GameAddr.PetPtr = address;
-		printf("宠物列表基址:%08X\n", m_GameAddr.PetPtr);
+		printf("宠物列表基址:%08X [%08X] %08X\n", address, PtrToDword(address), codes);
 	}
 
 	return address != 0;
@@ -465,19 +506,25 @@ DWORD Game::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_lengt
 		if ((i + length) > m_dwReadSize)
 			break;
 
+		DWORD addr = m_dwReadBase + i;
+		if (addr == (DWORD)codes) { // 就是自己
+			printf("搜索到了自己:%08X\n", codes);
+			return 0;
+		}
+
 		DWORD* dw = (DWORD*)(m_pReadBuffer + i);
 		bool result = true;
 		for (DWORD j = 0; j < length; j++) {
-			if (codes[j] == 0x11) { // 不检查
+			if (codes[j] == 0x11 && codes[j] != dw[j]) { // 不检查
 				result = true;
 			}
-			else if (codes[j] == 0x22) { // 需要此值不为0
+			else if (codes[j] == 0x22 && codes[j] != dw[j]) { // 需要此值不为0
 				if (dw[j] == 0) {
 					result = false;
 					break;
 				}
 			}
-			else if ((codes[j] & 0xffff0000) == 0x12340000) { // 低2字节相等
+			else if (((codes[j] & 0xffff0000) == 0x12340000) && ((dw[j] & 0xffff0000) != 0x12340000)) { // 低2字节相等
 				if ((dw[j]&0x0000ffff) != (codes[j]&0x0000ffff)) {
 					result = false;
 					break;
@@ -486,7 +533,7 @@ DWORD Game::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_lengt
 					//printf("%08X\n", dw[j]);
 				}
 			}
-			else if ((codes[j] & 0x0000ffff) == 0x00001234) { // 高2字节相等
+			else if (((codes[j] & 0x0000ffff) == 0x00001234) && ((dw[j] & 0x0000ffff) != 0x00001234)) { // 高2字节相等
 				if ((dw[j] & 0xffff0000) != (codes[j] & 0xffff0000)) {
 					result = false;
 					break;
@@ -508,8 +555,8 @@ DWORD Game::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_lengt
 		}
 
 		if (result) {
-			save[count++] = m_dwReadBase + i;
-			//printf("地址:%08X   %08X\n", m_dwReadBase + i, m_pGuaiWus[0]);
+			save[count++] = addr;
+			//printf("地址:%08X   %08X\n", addr, codes);
 			if (count == save_length)
 				break;
 		}
@@ -1104,5 +1151,27 @@ void Game::Call_PetFuck(int pet_id)
 	}
 	catch (...) {
 		printf("Call_PetFuck失败\n");
+	}
+}
+
+// 是否选择邀请队伍
+void Game::Call_CheckTeam(int v)
+{
+	if (!m_GameAddr.TeamChkSta)
+		return;
+
+	try {
+		DWORD _esi = m_GameAddr.TeamChkSta;
+		__asm
+		{
+			push v
+			mov esi, _esi
+			mov ecx, dword ptr ds : [esi + 0x1DC]
+			mov eax, 0x00CDB440
+			call eax
+		}
+	}
+	catch (...) {
+
 	}
 }

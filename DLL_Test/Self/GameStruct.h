@@ -87,6 +87,7 @@ typedef struct game_addr
 	DWORD CoorY;          // Y坐标
 	DWORD MovSta;         // 移动状态
 	DWORD TalKBoxSta;     // 对话框状态
+	DWORD TeamChkSta;     // 进入副本是否勾选了邀请队伍
 	DWORD TipBoxSta;      // 提示框状态
 	DWORD QuickKeyNum;    // 快捷键上面物品数量(F1那一排)
 	DWORD QuickKey2Num;   // 快捷键上面物品数量(1 那一排)
