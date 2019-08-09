@@ -8,8 +8,11 @@ class Move
 public:
 	// ...
 	Move(Game* p);
+
+	// 初始化数据
+	void InitData();
 	// 移动
-	void Run(DWORD x, DWORD y);
+	bool Run(DWORD x, DWORD y);
 	// 设置移动位置
 	void SetMove(DWORD x, DWORD y);
 	// 清除移动数据
@@ -33,6 +36,10 @@ public:
 	DWORD m_dwMvX;
 	// 移动位置Y
 	DWORD m_dwMvY;
+	// 判断移动结束时间
+	__int64 m_i64IsEndTime;
+	// 判断是否移动时间
+	__int64 m_i64IsMvTime;
 	// 移动时间
 	__int64 m_i64MvTime;
 };

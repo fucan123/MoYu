@@ -155,6 +155,7 @@
   <ItemGroup>
     <ClInclude Include="DLL_Test.h" />
     <ClInclude Include="Self\Game.h" />
+    <ClInclude Include="Self\GameConf.h" />
     <ClInclude Include="Self\GameMain.h" />
     <ClInclude Include="Self\GameProc.h" />
     <ClInclude Include="Self\GameStep.h" />
@@ -172,6 +173,7 @@
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="DLL_Test.cpp" />
     <ClCompile Include="Self\Game.cpp" />
+    <ClCompile Include="Self\GameConf.cpp" />
     <ClCompile Include="Self\GameMain.cpp" />
     <ClCompile Include="Self\GameProc.cpp" />
     <ClCompile Include="Self\GameStep.cpp" />

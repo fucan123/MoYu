@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include "Game.h"
+#include "GameConf.h"
 #include "GameProc.h"
 #include "Item.h"
 #include "Talk.h"
@@ -13,11 +14,15 @@
 #include "Magic.h"
 #include "Pet.h"
 
+// 游戏g_pObjHero全局变量
+DWORD g_pObjHero = NULL;
+// 游戏g_objPlayerSet全局变量
+DWORD g_objPlayerSet = NULL;
+
 GameModAddr Game::m_GameModAddr; // 游戏模块地址
 GameAddr    Game::m_GameAddr;    // 游戏一些数据地址
 GameCall    Game::m_GameCall;    // 游戏CALL
 GameWnd     Game::m_GameWnd;     // 游戏窗口信息
-CallStep    Game::m_CallStep;    // 游戏正在执行的CALL
 
 Game*       Game::self = NULL;   // Game自身
 
@@ -29,9 +34,7 @@ Game::Game()
 	ZeroMemory(&m_GameModAddr, sizeof(GameModAddr));
 	ZeroMemory(&m_GameAddr, sizeof(GameAddr));
 	ZeroMemory(&m_GameCall, sizeof(GameCall));
-	ZeroMemory(&m_CallStep, sizeof(CallStep));
 
-	m_pGuaiWus = new GameGuaiWu*[GUAIWU_MAX];
 	m_bIsReadEnd = true;
 	m_pReadBuffer = new BYTE[1024 * 1024 * 10];
 
@@ -42,13 +45,13 @@ Game::Game()
 	m_pMagic    = new Magic(this);     // 技能类
 	m_pPet      = new Pet(this);       // 宠物类
 
+	m_pGameConf = new GameConf(this);  // 游戏配置类
 	m_pGameProc = new GameProc(this);  // 执行过程类
 }
 
 // >>>
 Game::~Game()
 {
-	delete m_pGuaiWus;
 	delete m_pReadBuffer;
 
 	delete m_pItem;
@@ -64,6 +67,8 @@ Game::~Game()
 // 初始化
 bool Game::Init()
 {
+	FindGameWnd();
+
 	m_hGameProcess = GetCurrentProcess();
 	FindAllModAddr();
 	FindCoorAddr();
@@ -72,15 +77,28 @@ bool Game::Init()
 	while (!PtrToDword(BASE_DS_OFFSET)) {
 		Sleep(1000);
 	}
+	while (!FindBagAddr()) {
+		Sleep(1000);
+	}
+
+	DWORD pid;
+	GetWindowThreadProcessId(m_hWnd, &pid);
 
 	printf("开始读取游戏数据...\n");
 	FindAllCall();
-	FindBagAddr();
+	
 	if (!ReadGameMemory()) {
 		INLOG("无法获得人物血量地址！！！");
 		return false;
 	}
-
+	m_pMagic->ReadMagic();
+#if 0
+	while (!m_GameAddr.Life) {
+		printf("重新读取血量地址\n");
+		ReadGameMemory();
+		Sleep(1000);
+	}
+#endif
 	return true;
 }
 
@@ -103,8 +121,17 @@ void Game::Run()
 // 获得游戏窗口
 HWND Game::FindGameWnd()
 {
+	while (true) {
+		DWORD pid = GetCurrentProcessId();
+		::EnumChildWindows(m_hWnd, EnumProc, (LPARAM)&pid);
+		if (pid != GetCurrentProcessId()) {
+			m_hWnd = (HWND)pid;
+			break;
+		}
+		Sleep(5000);
+	}
+	
 	float f = ::GetScale();
-	m_hWnd = FindWindow(NULL, WND_TITLE);
 	GetWindowRect(m_hWnd, &m_GameWnd.Rect);
 	m_GameWnd.Width = m_GameWnd.Rect.right - m_GameWnd.Rect.left;
 	m_GameWnd.Height = m_GameWnd.Rect.bottom - m_GameWnd.Rect.top;
@@ -123,11 +150,17 @@ void Game::FindAllModAddr()
 void Game::FindAllCall()
 {
 	SearchModFuncMsg info[] = {
+		{"?g_pObjHero",            NULL,  0, &g_pObjHero,                  "g_pObjHero全局变量"},
+		{"?g_objPlayerSet",        NULL,  0, &g_objPlayerSet,              "g_objPlayerSet全局变量"},
 		{"?Run@CHero",             NULL,  0, &m_GameCall.Run,              "移动函数"},
 		{"?ActiveNpc@CHero",       NULL,  0, &m_GameCall.ActiveNpc,        "NPC对话"},
 		{"?UseItem@CHero",         NULL,  0, &m_GameCall.UseItem,          "使用物品"},
 		{"?DropItem@CHero",        NULL,  0, &m_GameCall.DropItem,         "丢弃物品"},
 		{"?PickUpItem@CHero",      NULL,  0, &m_GameCall.PickUpItem,       "捡拾物品"},
+		{"?SellItem@CHero",        NULL,  0, &m_GameCall.SellItem,         "卖物品"},
+		{"?CheckInItem@CHero",     NULL,  0, &m_GameCall.CheckInItem,      "存入远程仓库"},
+		{"?OpenBank@CHero",        NULL,  0, &m_GameCall.OpenBank,         "打开远程仓库"},
+		{"?TransmByMemoryStone@CHero",    NULL,  0, &m_GameCall.TransmByMemoryStone, "使用可传送物品"},
 		{"?MagicAttack@CHero",     "POS", 0, &m_GameCall.MagicAttack_GWID, "使用技能-怪物ID "},
 		{"?MagicAttack@CHero",     "POS", 1, &m_GameCall.MagicAttack_XY,   "使用技能-XY坐标"},
 		{"?CallEudenmon@CHero",    NULL,  0, &m_GameCall.CallEudenmon,     "宠物出征"},
@@ -142,6 +175,7 @@ void Game::FindAllCall()
 	}
 
 	m_GameCall.CloseTipBox = FindCloseTipBoxCall();
+	m_GameCall.GetNpcBaseAddr = FindGetNpcBaseAddr();
 }
 
 // 获取关闭提示框函数
@@ -157,6 +191,24 @@ DWORD Game::FindCloseTipBoxCall()
 	DWORD address = 0;
 	if (SearchInMod(L"soul.exe", codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
 		printf("Call关闭提示框函数地址:%08X\n", address);
+	}
+	return address;
+}
+
+// 获取获取NPC基地址函数
+DWORD Game::FindGetNpcBaseAddr()
+{
+	// 搜索方法 找到NPC基址->下访问断点，点击NPC身上的断点, 找到合适断点下断
+	// [在CGamePlayerSet::Process里面]mov dword ptr ds:[ecx+0x44],edx
+	// 里面寻找即可找到
+	DWORD codes[] = {
+		0x83EC8B55, 0x4D8924EC, 0x08458BDC, 0xE04D8D50,
+		0xF0558D51, 0xDC4D8B52
+	};
+
+	DWORD address = 0;
+	if (SearchInMod(L"3drole.dll", codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
+		printf("Call获取获取NPC基地址:%08X\n", address);
 	}
 	return address;
 }
@@ -201,10 +253,10 @@ bool Game::FindMoveStaAddr()
 	};
 	//+0xB0
 #else
-	// 4:0x02EB46CC 4:0x00 4:0xFFFFFFFF 4:0x01 4:0x00 4:0x00 4:0x03CFF320 4:0x00
+	// 4:0x032AD6F0 4:0x00 4:0xFFFFFFFF 4:0x01 4:0x00 4:0x00 4:0x03CFF320 4:0x00
 	// +19C
 	DWORD codes[] = {
-		0x123446CC, 0x00000000, 0xFFFFFFFF, 0x00000001,
+		0x1234D6F0, 0x00000000, 0xFFFFFFFF, 0x00000001,
 		0x00000000, 0x00000000, 0x1234F320, 0x00000000
 	};
 #endif;
@@ -222,7 +274,7 @@ bool Game::FindTalkBoxStaAddr()
 {
 	// 4:0x00F87258 4:0x00000001 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000001 4:0x00000000
 	DWORD codes[] = {
-		0x00F87258, 0x00000001, 0x00000000, 0x00000000,
+		0x00F93E10, 0x00000001, 0x00000000, 0x00000000,
 		0x00000000, 0x00000001, 0x00000000, 0x00000022
 	};
 	DWORD address = 0;
@@ -253,9 +305,9 @@ bool Game::FindTeamChkStaAddr()
 // 获取提示框状态地址
 bool Game::FindTipBoxStaAddr()
 {
-	// 4:0x00F2D558 4:0x00000001 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000001 4:0x00000000
+	// 4:0x00F39588 4:0x00000001 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000001 4:0x00000000
 	DWORD codes[] = {
-		0x00F2D558, 0x00000001, 0x00000000, 0x00000000,
+		0x00F39588, 0x00000001, 0x00000000, 0x00000000,
 		0x00000000, 0x00000001, 0x00000000, 0x00000022
 	};
 	DWORD address = 0;
@@ -276,7 +328,7 @@ bool Game::FindLifeAddr()
 		0x00000018, 0x00000029, 0x00000000, 0x00000000,
 	};
 	DWORD address = 0;
-	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
+	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address, 1, 1)) {
 		m_GameAddr.Life = address + 0x20;
 		m_GameAddr.LifeMax = m_GameAddr.Life + 0x40F0;
 		printf("找到生命地址：%08X\n", m_GameAddr.Life);
@@ -294,41 +346,6 @@ bool Game::FindLifeAddr()
 	return address > 0;
 }
 
-// 获取快捷键上面物品数量地址
-bool Game::FindQuickKeyAddr()
-{
-	for (DWORD i = 0; i < m_dwReadSize; i += 4) {
-		if ((i + 0x20) > m_dwReadSize)
-			break;
-
-		DWORD addr = m_dwReadBase + i;
-		DWORD* dw = (DWORD*)(m_pReadBuffer + i);
-
-		bool r = dw[0] == 0xCA000000 && dw[1] == 0xCA000000 && dw[2] == 0xCA000000;
-		r = r && dw[3] == 0x01 && dw[4] == 0x00 && dw[5] == 0x00;
-		r = r && dw[6] == 0x136 && dw[7] == 0x20;
-
-		if (r) {
-			DWORD num_offset = 0x20;
-			DWORD type_offset = 0x200;
-			DWORD type = *(DWORD*)(m_pReadBuffer + i + num_offset + type_offset);
-			addr += num_offset;
-			if (type == 0x02020202) {
-				m_GameAddr.QuickKeyNum = addr;
-				m_GameAddr.QuickKeyType = addr + type_offset;
-				INLOGVARN(64, "第一排快捷键地址 数量:%08X 类型:%08X", m_GameAddr.QuickKeyNum, m_GameAddr.QuickKeyType);
-			}
-			else {
-				m_GameAddr.QuickKey2Num = addr;
-				m_GameAddr.QuickKey2Type = addr + type_offset;
-				INLOGVARN(64, "第二排快捷键地址 数量:%08X 类型:%08X", m_GameAddr.QuickKey2Num, m_GameAddr.QuickKey2Type);
-			}
-		}
-	}
-
-	return true;
-}
-
 // 获取背包代码
 bool Game::FindBagAddr()
 {
@@ -343,6 +360,7 @@ bool Game::FindBagAddr()
 		__asm
 		{
 			mov eax, dword ptr ds : [BASE_DS_OFFSET]
+			//mov eax, g_pObjHero
 			mov eax, [eax]
 			mov eax, [eax + 0x2234]     // 2234
 			mov edx, [eax + 0x10]       // 物品地址指针
@@ -351,7 +369,7 @@ bool Game::FindBagAddr()
 			mov dword ptr[count], edx
 		}
 		printf("物品指针:%08X 数量:%d\n", p, count);
-		m_GameAddr.Bag = p;
+		//m_GameAddr.Bag = p;
 
 		return p != 0;
 	}
@@ -367,8 +385,8 @@ bool Game::FindItemPtr()
 	// 4:0x00 4:0x04 4:0x80000000 4:0x80000000 4:0x7FFFFFFF 4:0x7FFFFFFF 4:* 4:0x01 4:0x19 4:0x00400000
 	DWORD codes[] = {
 		0x00000000, 0x00000004, 0x80000000, 0x80000000,
-		0x7FFFFFFF, 0x7FFFFFFF, 0x00000011, 0x00000001,
-		0x00000019, 0x00400000, 0x00000011, 0x00000011,
+		0x7FFFFFFF, 0x7FFFFFFF, 0x00000011, 0x00000011,
+		0x00000022, 0x00400000, 0x00000022, 0x00000022,
 	};
 	DWORD address;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
@@ -385,7 +403,7 @@ bool Game::FindCallNPCTalkEsi()
 {
 	// 0x00F6FE30
 	DWORD codes[] = {
-		0x00F87258, 0x00000001, 0x00000000, 0x00000000,
+		0x00F93E10, 0x00000001, 0x00000000, 0x00000000,
 		0x00000000, 0x00000001, 0x00000000, 0x00000022
 	};
 	DWORD address = 0;
@@ -403,17 +421,31 @@ bool Game::FindPetPtrAddr()
 {
 	// 搜索方法 先找出宠物血量->CE下血量访问断点, 找到基址, 查看特征码
 	// 宠物ID->获得宠物ID地址->下访问断点->找到偏移
-	// 4:0x00F59070 4:0x00000001 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000001 4:0x00000000
+	// 4:0x00F654F0 4:0x00000001 4:0x00000000 4:0x00000000 4:0x00000000 4:0x00000001 4:0x00000000
+	DWORD address = NULL;
+	__asm
+	{
+		mov ecx, dword ptr ds : [BASE_PET_OFFSET]
+		mov ecx, dword ptr ds : [ecx + 0x50C]
+		mov ecx, dword ptr ds : [ecx + 0x458]
+		mov dword ptr[address], ecx
+	}
+	m_GameAddr.PetPtr = address;
+	printf("宠物列表基址:%08X\n", address);
+#if 0
 	DWORD codes[] = {
-		0x00F59070, 0x00000001, 0x00000000, 0x00000000,
-		0x00000000, 0x00000001, 0x00000000, 0x00000022
+		0x00F654F0, 0x00000001, 0x00000000, 0x00000000,
+		0x00000000, 0x00000001, 0x00000000, 0x00000022,
+		//0x00000022, 0x00000000, 0x00000010, 0x00000022,
+		//0xFFFFFFFF, 0x00000000, 0x00000000, 0x00000000,
+		//0x0000016B, 0x0000016B, 0x00000000, 0x00000000,
 	};
 	DWORD address = 0;
 	if (SearchCode(codes, sizeof(codes) / sizeof(DWORD), &address)) {
 		m_GameAddr.PetPtr = address;
 		printf("宠物列表基址:%08X [%08X] %08X\n", address, PtrToDword(address), codes);
 	}
-
+#endif
 	return address != 0;
 }
 
@@ -508,23 +540,23 @@ DWORD Game::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_lengt
 
 		DWORD addr = m_dwReadBase + i;
 		if (addr == (DWORD)codes) { // 就是自己
-			printf("搜索到了自己:%08X\n", codes);
+			//printf("搜索到了自己:%08X\n", codes);
 			return 0;
 		}
 
 		DWORD* dw = (DWORD*)(m_pReadBuffer + i);
 		bool result = true;
 		for (DWORD j = 0; j < length; j++) {
-			if (codes[j] == 0x11 && codes[j] != dw[j]) { // 不检查
+			if (codes[j] == 0x11) { // 不检查
 				result = true;
 			}
-			else if (codes[j] == 0x22 && codes[j] != dw[j]) { // 需要此值不为0
+			else if (codes[j] == 0x22) { // 需要此值不为0
 				if (dw[j] == 0) {
 					result = false;
 					break;
 				}
 			}
-			else if (((codes[j] & 0xffff0000) == 0x12340000) && ((dw[j] & 0xffff0000) != 0x12340000)) { // 低2字节相等
+			else if (((codes[j] & 0xffff0000) == 0x12340000)) { // 低2字节相等
 				if ((dw[j]&0x0000ffff) != (codes[j]&0x0000ffff)) {
 					result = false;
 					break;
@@ -533,7 +565,7 @@ DWORD Game::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_lengt
 					//printf("%08X\n", dw[j]);
 				}
 			}
-			else if (((codes[j] & 0x0000ffff) == 0x00001234) && ((dw[j] & 0x0000ffff) != 0x00001234)) { // 高2字节相等
+			else if (((codes[j] & 0x0000ffff) == 0x00001234)) { // 高2字节相等
 				if ((dw[j] & 0xffff0000) != (codes[j] & 0xffff0000)) {
 					result = false;
 					break;
@@ -568,18 +600,9 @@ DWORD Game::SearchCode(DWORD* codes, DWORD length, DWORD* save, DWORD save_lengt
 // 读取坐标
 bool Game::ReadCoor(DWORD* x, DWORD* y)
 {
-	bool result;
-	try {
-		m_dwX = PtrToDword(m_GameAddr.CoorX);
-		m_dwY = PtrToDword(m_GameAddr.CoorY);
-		result = true;
-	}
-	catch (...) {
-		printf("Game::ReadCoor失败\n");
-		m_dwX = 0;
-		m_dwY = 0;
-		result = false;
-	}
+	m_dwX = PtrToDword(m_GameAddr.CoorX);
+	m_dwY = PtrToDword(m_GameAddr.CoorY);
+
 	if (x) {
 		*x = m_dwX;
 	}
@@ -587,21 +610,15 @@ bool Game::ReadCoor(DWORD* x, DWORD* y)
 		*y = m_dwY;
 	}
 
-	return result;
+	return true;
 }
 
 // 读取生命值
 bool Game::ReadLife(int& life, int& life_max)
 {
-	try {
-		life = PtrToDword(m_GameAddr.Life);
-		life_max = PtrToDword(m_GameAddr.LifeMax);
-		return true;
-	}
-	catch (...) {
-		printf("Game::ReadLife失败\n");
-		return false;
-	}	
+	life = PtrToDword(m_GameAddr.Life);
+	life_max = PtrToDword(m_GameAddr.LifeMax);
+	return true;	
 }
 
 // 读取药包数量
@@ -621,66 +638,14 @@ bool Game::ReadBag(DWORD* bag, int length)
 	return ReadProcessMemory(m_hGameProcess, (PVOID)m_GameAddr.Bag, bag, length, NULL);
 }
 
-// 攻击怪物
-void Game::AttackGuaiWu()
+// 获得窗口句柄
+bool Game::FindButtonWnd(int button_id, HWND& hwnd, HWND& parent)
 {
-	printf("怪物总数量:%d\n", m_dwGuaiWuCount);
-
-	DWORD m = m_dwGuaiWuCount;// > 3 ? 3 : m_dwGuaiWuCount;
-	ReadCoor();
-	DWORD num = 0, near_index = 0xff, near_dist = 0;
-	for (DWORD i = 0; i < m; i++) {
-		try {
-			GameGuaiWu* pGuaiWu = m_pGuaiWus[i];
-			//printf("怪物地址:%08X\n", pGuaiWu);
-			if (pGuaiWu->X > 0 && pGuaiWu->Y > 0 && pGuaiWu->Type && pGuaiWu->Type != 0x6E) {
-				char* name = (char*)((DWORD)m_pGuaiWus[i] + 0x520);
-				printf("%02d.%s[%08X]: x:%X[%d] y:%X[%d] 类型:%X\n", i + 1, name, pGuaiWu->Id, pGuaiWu->X, pGuaiWu->X, pGuaiWu->Y, pGuaiWu->Y, pGuaiWu->Type);
-
-				if (m_dwX && m_dwY) {
-					int cx = m_dwX - pGuaiWu->X, cy = m_dwY - pGuaiWu->Y;
-					DWORD cxy = abs(cx) + abs(cy);
-					if (near_index == 0xff || cxy < near_dist) {
-						near_index = i;
-						near_dist = cxy;
-					}
-				}
-
-				num++;
-			}
-		}
-		catch (void*) {
-
-		}
-	}
-	return;
-	if (num > 0) {
-		if (near_index != 0xff) {
-			try {
-				GameGuaiWu* pGuaiWu = (GameGuaiWu*)m_pGuaiWus[near_index];
-				int mvx = m_dwX, mvy = m_dwY;
-				int cx = m_dwX - pGuaiWu->X, cy = m_dwY - pGuaiWu->Y;
-				if (abs(cx) >= 8) {
-					mvx = pGuaiWu->X > m_dwX ? pGuaiWu->X - 5 : pGuaiWu->X + 5;
-				}
-				if (abs(cy) >= 8) {
-					mvy = pGuaiWu->Y > m_dwY ? pGuaiWu->Y - 5 : pGuaiWu->Y + 5;
-				}
-
-				if (mvx != m_dwX || mvy != m_dwY) {
-					Call_Run(mvx, mvy);
-				}
-				else {
-					Call_Magic(电击术, pGuaiWu->Id);
-					//Call_Magic(凤珠, pGuaiWu->X, pGuaiWu->Y);
-				}
-			}
-			catch (void*) {
-
-			}
-		}
-		printf("\n---------------------------\n");
-	}
+	HWND wnds[] = { (HWND)button_id, NULL };
+	::EnumChildWindows(m_hWnd, EnumChildProc, (LPARAM)wnds);
+	hwnd = wnds[0];
+	parent = wnds[1];
+	return parent != NULL;
 }
 
 // 读取游戏内存
@@ -691,7 +656,7 @@ bool Game::ReadGameMemory(DWORD flag)
 
 	MEMORY_BASIC_INFORMATION mbi;
 	memset(&mbi, 0, sizeof(MEMORY_BASIC_INFORMATION));
-	DWORD_PTR MaxPtr = 0x30000000; // 最大读取内存地址
+	DWORD_PTR MaxPtr = 0x70000000; // 最大读取内存地址
 	DWORD_PTR max = 0;
 
 	__int64 ms = getmillisecond();
@@ -706,7 +671,7 @@ bool Game::ReadGameMemory(DWORD flag)
 		//printf("r:%d\n", r);
 		//printf("ReadAddress:%08X - %08X-----%X\n", ReadAddress, ReadAddress + mbi.RegionSize, mbi.RegionSize);
 		if (r == 0) {
-			DPrint(("r:%lld -- %p\n", r, ReadAddress));
+			DPrint(("r:%d -- %p\n", (int)r, ReadAddress));
 			break;
 		}
 		if (mbi.Type != MEM_PRIVATE && mbi.Protect != PAGE_READWRITE) {
@@ -714,61 +679,72 @@ bool Game::ReadGameMemory(DWORD flag)
 			goto _c;
 		}
 		else {
-			m_dwReadBase = ReadAddress;
-			m_dwReadSize = mbi.RegionSize;
+			DWORD pTmpReadAddress = ReadAddress;
+			DWORD dwOneReadSize = 0x1000; // 每次读取数量
+			DWORD dwReadSize = 0x00;      // 已读取数量
+			while (dwReadSize < mbi.RegionSize) {
+				m_dwReadBase = pTmpReadAddress;
+				m_dwReadSize = (dwReadSize + dwOneReadSize) <= mbi.RegionSize 
+					? dwOneReadSize : mbi.RegionSize - dwReadSize;
 
-			if (ReadProcessMemory(m_hGameProcess, (LPVOID)ReadAddress, m_pReadBuffer, m_dwReadSize, NULL)) {
-				if (flag & 0x10) {
-					//printf("ReadGuaiWu\n");
-					if (!m_pGuaiWu->ReadGuaiWu())
-						flag &= ~0x10;
-				}
-				if (flag & 0x20) {
-					if (!m_pTalk->ReadNPC())
-						flag &= ~0x20;
-				}
-				//printf("flag:%08X %p-%p\n", flag, ReadAddress, ReadAddress + mbi.RegionSize);
+				if (ReadProcessMemory(m_hGameProcess, (LPVOID)pTmpReadAddress, m_pReadBuffer, m_dwReadSize, NULL)) {
+					if (flag & 0x10) {
+						//printf("ReadGuaiWu\n");
+						if (!m_pGuaiWu->ReadGuaiWu())
+							flag &= ~0x10;
+					}
+					if (flag & 0x20) {
+						if (!m_pTalk->ReadNPC())
+							flag &= ~0x20;
+					}
+					//printf("flag:%08X %p-%p\n", flag, ReadAddress, ReadAddress + mbi.RegionSize);
 
-				if (flag & 0x01) {
-					if (!m_GameAddr.MovSta) {
-						FindMoveStaAddr();
+					if (flag & 0x01) {
+						if (!m_GameAddr.MovSta) {
+							FindMoveStaAddr();
+						}
+						if (!m_GameAddr.TalKBoxSta) {
+							FindTalkBoxStaAddr();
+						}
+						if (!m_GameAddr.TipBoxSta) {
+							FindTipBoxStaAddr();
+						}
+						if (!m_GameAddr.Life) {
+							FindLifeAddr();
+						}
+						if (!m_GameAddr.CallNpcTalkEsi) {
+							FindCallNPCTalkEsi();
+						}
+						if (!m_GameAddr.ItemPtr) {
+							FindItemPtr();
+						}
+						if (!m_GameAddr.PetPtr) {
+							FindPetPtrAddr();
+						}
 					}
-					if (!m_GameAddr.TalKBoxSta) {
-						FindTalkBoxStaAddr();
-					}
-					if (!m_GameAddr.TipBoxSta) {
-						FindTipBoxStaAddr();
-					}
-					if (!m_GameAddr.Life) {
-						FindLifeAddr();
-					}
-					if (!m_GameAddr.QuickKeyType) {
-						FindQuickKeyAddr();
-					}
-					if (!m_GameAddr.CallNpcTalkEsi) {
-						FindCallNPCTalkEsi();
-					}
-					if (!m_GameAddr.ItemPtr) {
-						FindItemPtr();
-					}
-					if (!m_GameAddr.PetPtr) {
-						FindPetPtrAddr();
-					}
+					if (!flag)
+						goto end;
 				}
-				if (!flag)
-					break;
+				else {
+					//printf("%p-%p ===读取失败, 大小:%d, 错误码:%d\n", pTmpReadAddress, pTmpReadAddress + m_dwReadSize, (int)m_dwReadSize, GetLastError());
+				}
+
+				dwReadSize += m_dwReadSize;
+				pTmpReadAddress += m_dwReadSize;
 			}
+
 			count++;
 		}
 	_c:
 		// 读取地址增加
 		ReadAddress += mbi.RegionSize;
+		//Sleep(8);
 		//printf("%016X---内存大小2:%08X\n", ReadAddress, mbi.RegionSize);
 		// 扫0x10000000字节内存 休眠100毫秒
 	}
+end:
 	__int64 ms2 = getmillisecond();
 	printf("读取完内存用时:%d毫秒\n", ms2 - ms);
-
 	m_bIsReadEnd = true;
 	return true;
 }
@@ -785,91 +761,96 @@ void Game::InsertLog(wchar_t * text)
 	//g_dlg->InsertLog(text);
 }
 
-// 是否正在执行CALL
-bool Game::IsCalling()
+// 枚举窗口
+BOOL Game::EnumProc(HWND hWnd, LPARAM lParam)
 {
-	if (m_CallStep.Type != CST_NOTHING) {
-		//printf("IsCalling:%08X\n", m_CallStep.Type);
-		if (CallIsComplete()) {
-			printf("ClearCallStep\n");
-			ClearCallStep();
+	DWORD thepid = *(DWORD*)lParam;
+	DWORD pid;
+	GetWindowThreadProcessId(hWnd, &pid);
+	//printf("HWND:%08X pid:%d thepid:%d\n", hWnd, pid, thepid);
+	if (pid == thepid) {
+		char name[64];
+		GetWindowTextA(hWnd, name, sizeof(name));
+		if (strcmp(name, WND_TITLE_A) == 0) {
+			*(HWND*)lParam = hWnd;
+			return FALSE;
 		}
+		
 	}
-
-	return m_CallStep.Type != CST_NOTHING;
+	return TRUE;
 }
 
-// CALL是否已完成
-bool Game::CallIsComplete()
+// 枚举子窗口
+BOOL Game::EnumChildProc(HWND hWnd, LPARAM lParam)
 {
-	bool result = true;
-	switch (m_CallStep.Type)
+	HWND* param = (HWND*)lParam;
+	HWND hWnd_Child = ::GetDlgItem(hWnd, (int)param[0]);
+	if (hWnd_Child) { // 找到了子窗口
+		param[0] = hWnd_Child; // 子窗口句柄 
+		param[1] = hWnd;       // 父窗口句柄
+		return FALSE;
+	}
+	return TRUE;
+}
+
+// 按键
+void Game::Keyborad(int type, int key)
+{
+	UINT scan_code = MapVirtualKey(key, MAPVK_VK_TO_VSC);
+	LPARAM lParam = 0x0001; // 0-15为按键次数
+	lParam |= (scan_code&0xff) << 16; // 16-23为按键扫描码
+	if (key == WM_KEYUP) { // 按键弹起
+		lParam |= 0xC0000000;
+	}
+
+	Game_KbdProc func = ((Game_KbdProc)HOOK_KBD_FUNC);
+#if 0
+	func(3, key, lParam);
+#else
+	__asm
 	{
-	case CST_RUN:
-		if (Game::self->m_pMove->IsMoveEnd()     // 达到指定位置
-			|| !Game::self->m_pMove->IsMove()) { // 没有移动了
-			result = true;
-			Game::self->m_pMove->ClearMove();
-		}
-		break;
-	case CST_NPC:
-		result = Game::self->m_pTalk->NPCTalkStatus();
-		break;
-	case CST_NPCTALK:
-		result = Game::self->m_pTalk->NPCTalkStatus();
-		break;
-	case CST_PICKUP:
-		result = !Game::self->m_pItem->GroundHasItem(m_CallStep.ItemId);
-		break;
-	default:
-		result = true;
-		break;
+		push lParam
+		push key
+		push 0x03
+		mov  ebx, 0x002C5000
+		mov  edi, lParam
+		mov  ecx, HOOK_KBD_FUNC
+		mov  esi, ecx
+		call esi
 	}
-	if (!result) {
-		result = time(nullptr) > (m_CallStep.CallTime + 2);
-	}
-
-	return result;
+#endif
 }
 
-// 设置CALL STEP数据
-void Game::SetCallStep(CallStepType type, DWORD v1, DWORD v2)
+// 按键
+void Game::KeyDown(char key)
 {
-	m_CallStep.v1 = v1;
-	m_CallStep.v2 = v2;
-	m_CallStep.Type = type;
-	m_CallStep.CallTime = time(nullptr);
+	Keyborad(WM_KEYDOWN, key);
 }
 
-// 清除CALL STEP数据
-void Game::ClearCallStep()
+// 按键
+void Game::KeyUp(char key)
 {
-	ZeroMemory(&m_CallStep, sizeof(m_CallStep));
+	Keyborad(WM_KEYUP, key);
 }
 
 // 人物移动函数
 void Game::Call_Run(int x, int y)
 {
-	try {
-		printf("移动到:%d,%d\n", x, y);
-		// 4:0x6AEC8B55 4:0xBE7468FF 4:0xA1640326 4:0x00000000 4:0x25896450 4:0x00000000 4:0x04D8EC81 4:0x56530000
-		DWORD func = m_GameCall.Run;
-		__asm {
-			mov ecx, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [ecx] // this指针
-			pushf
-			mov eax, [esp]
-			and eax, 0xFFFFFF6E // CAS标志为0 可能是点击地图
-			mov[esp], eax
-			popf
-			push 0 // 0
-			push y // y
-			push x // x
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_Run失败\n");
+	printf("移动到:%d,%d\n", x, y);
+	// 4:0x6AEC8B55 4:0xBE7468FF 4:0xA1640326 4:0x00000000 4:0x25896450 4:0x00000000 4:0x04D8EC81 4:0x56530000
+	DWORD func = m_GameCall.Run;
+	__asm {
+		mov ecx, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [ecx] // this指针
+		//pushf
+		//mov eax, [esp]
+		//and eax, 0xFFFFFF6E // CAS标志为0 可能是点击地图
+		//mov[esp], eax
+		//popf
+		push 0 // 0
+		push y // y
+		push x // x
+		call func
 	}
 }
 
@@ -877,34 +858,29 @@ void Game::Call_Run(int x, int y)
 void Game::Call_Talk(const char* msg, int type)
 {
 	return;
-	try {
-		DWORD arg = 0, func = NULL;
-		if (type == 1) {
-			arg = 0x07D1;
-			func = PtrToDword(CALLTALK_DS_COMMON);
-		}
-		else if (type == 2) {
-			arg = 0x07D3;
-			func = PtrToDword(CALLTALK_DS_TEAM);
-		}
-		// 15A62D0
-		ZeroMemory((PVOID)0x15A62D0, 0x100);
-		memcpy((PVOID)0x15A62D0, msg, strlen(msg));
-		// B7859a
-		__asm {
-			push 0x00
-			push arg
-			push 0xFFFFFF
-			push 0x00       // 0x015A63F8 // 可能是变量地址
-			push 0x15A62D0  // 喊话内容[固定地址]
-			push 0x00       // 0x015A63D8 // 可能是变量地址
-			mov eax, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [eax]
-			call func
-		}
+	DWORD arg = 0, func = NULL;
+	if (type == 1) {
+		arg = 0x07D1;
+		func = PtrToDword(CALLTALK_DS_COMMON);
 	}
-	catch (...) {
-		printf("Call_Talk失败\n");
+	else if (type == 2) {
+		arg = 0x07D3;
+		func = PtrToDword(CALLTALK_DS_TEAM);
+	}
+	// 15A62D0
+	ZeroMemory((PVOID)0x15A62D0, 0x100);
+	memcpy((PVOID)0x15A62D0, msg, strlen(msg));
+	// B7859a
+	__asm {
+		push 0x00
+		push arg
+		push 0xFFFFFF
+		push 0x00       // 0x015A63F8 // 可能是变量地址
+		push 0x15A62D0  // 喊话内容[固定地址]
+		push 0x00       // 0x015A63D8 // 可能是变量地址
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [eax]
+		call func
 	}
 }
 
@@ -912,19 +888,14 @@ void Game::Call_Talk(const char* msg, int type)
 void Game::Call_NPC(int npc_id)
 {
 	//INLOGVARN(32, "打开NPC:%08X\n", npc_id);
-	try {
-		printf("打开NPC:%08X\n", npc_id);
-		DWORD func = m_GameCall.ActiveNpc;
-		__asm {
-			push 0
-			push npc_id
-			mov ecx, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [ecx]
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_NPC失败\n");
+	printf("打开NPC:%08X\n", npc_id);
+	DWORD func = m_GameCall.ActiveNpc;
+	__asm {
+		push 0
+		push npc_id
+		mov ecx, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [ecx]
+		call func
 	}
 }
 
@@ -936,48 +907,38 @@ void Game::Call_NPCTalk(int no)
 	// edi=0343DDD8-2550000=EEDDD8
 	// esi=05DD5314
 
-	try {
-		DWORD _eax = m_GameModAddr.Mod3DRole + NPCTALK_EAX_3drole;
-		DWORD _esi = m_GameAddr.CallNpcTalkEsi;
-		printf("NPCTalk _eax:%08X _edi:%08X _esi:%08X\n", _eax, PtrToDword(_eax), _esi);
-		__asm {
-			push 0
-			push no
-			mov eax, _eax
-			mov ecx, eax
-			mov edi, [eax]
-			call dword ptr ds : [edi + 0x138]
+	DWORD _eax = m_GameModAddr.Mod3DRole + NPCTALK_EAX_3drole;
+	DWORD _esi = m_GameAddr.CallNpcTalkEsi;
+	printf("NPCTalk no:%d _eax:%08X _edi:%08X _esi:%08X\n", no, _eax, PtrToDword(_eax), _esi);
+	__asm {
+		push 0
+		push no
+		mov eax, _eax
+		mov ecx, eax
+		mov edi, [eax]
+		call dword ptr ds : [edi + 0x138]
 
-			push 0x00
-			mov esi, _esi
-			mov ecx, esi
-			mov eax, 0x00CE6840
-			call eax
-		}
-	}
-	catch (...) {
-		printf("Call_NPCTalk失败\n");
+		push 0x00
+		mov esi, _esi
+		mov ecx, esi
+		mov eax, 0x00CF0360
+		call eax
 	}
 }
 
 // 关闭提示框
 void Game::Call_CloseTipBox(int close)
 {
-	try {
-		printf("关闭提示框:%d\n", close);
-		DWORD _ecx = m_GameAddr.TipBoxSta;
-		DWORD func = m_GameCall.CloseTipBox;
-		__asm
-		{
-			push 0
-			push close
-			push 0x0A
-			mov  ecx, _ecx
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_CloseTipBox失败\n");
+	printf("关闭提示框:%d\n", close);
+	DWORD _ecx = m_GameAddr.TipBoxSta;
+	DWORD func = m_GameCall.CloseTipBox;
+	__asm
+	{
+		push 0
+		push close
+		push 0x0A
+		mov  ecx, _ecx
+		call func
 	}
 }
 	
@@ -985,112 +946,129 @@ void Game::Call_CloseTipBox(int close)
 // 使用物品
 void Game::Call_UseItem(int item_id)
 {
-	try {
-		printf("使用物品:%08X\n", item_id);
-		DWORD func = m_GameCall.UseItem;
-		__asm
-		{
-			push 0x00
-			push 0xFFFFFFFF
-			push 0xFFFFFFFF
-			push 0x00
-			push item_id     // 物品ID
-			mov eax, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [eax]
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_UseItem失败\n");
+	printf("使用物品:%08X\n", item_id);
+	DWORD func = m_GameCall.UseItem;
+	__asm
+	{
+		push 0x00
+		push 0xFFFFFFFF
+		push 0xFFFFFFFF
+		push 0x00
+		push item_id     // 物品ID
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [eax]
+		call func
 	}
 }
 
 // 扔物品
 void Game::Call_DropItem(int item_id)
 {
-	try {
-		printf("丢弃物品:%08X\n", item_id);
-		DWORD func = m_GameCall.DropItem;
-		// 4:0x00 4:0x04 4:0x80000000 4:0x80000000 4:0x7FFFFFFF 4:0x7FFFFFFF 4:* 4:0x01 4:0x19 4:0x00400000
-		__asm
-		{
-			push 00      // 应该是扔掉的相对坐标
-			push 00      // 应该是扔掉的相对坐标
-			push item_id // 物品id
-			mov eax, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [eax]
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_DropItem失败\n");
+	printf("丢弃物品:%08X\n", item_id);
+	DWORD func = m_GameCall.DropItem;
+	// 4:0x00 4:0x04 4:0x80000000 4:0x80000000 4:0x7FFFFFFF 4:0x7FFFFFFF 4:* 4:0x01 4:0x19 4:0x00400000
+	__asm
+	{
+		push 00      // 应该是扔掉的相对坐标
+		push 00      // 应该是扔掉的相对坐标
+		push item_id // 物品id
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [eax]
+		call func
 	}
 }
 
 // 捡物品
 void Game::Call_PickUpItem(GameGroundItem* p)
 {
-	try {
-		printf("拾取物品:%08X %d,%d\n", p->Id, p->X, p->Y);
-		DWORD id = p->Id, x = p->X, y = p->Y;
-		DWORD func = m_GameCall.PickUpItem;
-		__asm
-		{
-			push y
-			push x
-			push id
-			mov eax, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [eax]
-			call func
-		}
+	printf("拾取物品:%08X %d,%d\n", p->Id, p->X, p->Y);
+	DWORD id = p->Id, x = p->X, y = p->Y;
+	DWORD func = m_GameCall.PickUpItem;
+	__asm
+	{
+		push y
+		push x
+		push id
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [eax]
+		call func
 	}
-	catch (...) {
-		printf("Call_PickUpItem失败\n");
+}
+
+// 卖东西
+void Game::Call_SellItem(int item_id)
+{
+	printf("卖东西:%08X\n", item_id);
+	DWORD func = m_GameCall.SellItem;
+	__asm
+	{
+		push item_id
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [eax]
+		call func
+	}
+}
+
+// 存入远程仓库
+void Game::Call_CheckInItem(int item_id)
+{
+	//printf("存入物品:%08X\n", item_id);
+	DWORD func = m_GameCall.CheckInItem;
+	__asm
+	{
+		push 0x0A
+		push item_id
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [eax]
+		call func
+	}
+}
+
+// 使用可传送物品
+void Game::Call_TransmByMemoryStone(int item_id)
+{
+	printf("使用可传送物品:%08X\n", item_id);
+	DWORD func = m_GameCall.TransmByMemoryStone;
+	__asm
+	{
+		push item_id
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [eax]
+		call func
 	}
 }
 
 // 放技能
 void Game::Call_Magic(int magic_id, int guaiwu_id)
 {
-	printf("技能:%08X %08X\n", magic_id, guaiwu_id);
-	try {
-		DWORD func = m_GameCall.MagicAttack_GWID;
-		__asm
-		{
-			push 0
-			push 0
-			push guaiwu_id
-			push magic_id
-			mov eax, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [eax]
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_Magic失败:怪物ID\n");
+	DWORD func = m_GameCall.MagicAttack_GWID;
+	__asm
+	{
+		push 0
+		push 0
+		push guaiwu_id
+		push magic_id
+		mov eax, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [eax]
+		call func
 	}
 }
 
 // 放技能
 void Game::Call_Magic(int magic_id, int x, int y)
 {
-	printf("技能:%08X %d,%d\n", magic_id, x, y);
-	try {
-		DWORD func = m_GameCall.MagicAttack_XY;
-		__asm
-		{
-			push 0
-			push 0
-			push y
-			push x
-			push magic_id
-			mov edx, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [edx]
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_Magic失败:x,y\n");
+	// 05D05020 06832EA4 mov ecx,dword ptr ds:[0xF1A518]
+	DWORD func = m_GameCall.MagicAttack_XY;
+	__asm
+	{
+		push 0
+		push 0
+		push y
+		push x
+		push magic_id
+		mov edx, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [edx]
+		call func
 	}
 	
 }
@@ -1100,57 +1078,56 @@ void Game::Call_PetOut(int pet_id)
 {
 	// 00870741 - 89 8C B3 C0020000  - mov [ebx+esi*4+000002C0],ecx
 	// 724-008
-	try {
-		printf("宠物出征:%08X\n", pet_id);
-		DWORD func = m_GameCall.CallEudenmon;
-		__asm
-		{
-			push 0x00
-			push pet_id
-			mov ecx, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [ecx]
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_PetOut失败\n");
+	printf("宠物出征:%08X\n", pet_id);
+	DWORD func = m_GameCall.CallEudenmon;
+	__asm
+	{
+		push 0x00
+		push pet_id
+		mov ecx, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [ecx]
+		call func
 	}
 }
 
 // 宠物召回
 void Game::Call_PetIn(int pet_id)
 {
-	try {
-		DWORD func = m_GameCall.KillEudenmon;
-		__asm
-		{
-			push pet_id
-			mov edx, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [edx]
-			call func
-		}
-	}
-	catch (...) {
-		printf("Call_PetIn失败\n");
+	DWORD func = m_GameCall.KillEudenmon;
+	__asm
+	{
+		push pet_id
+		mov edx, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [edx]
+		call func
 	}
 }
 
 // 宠物合体
 void Game::Call_PetFuck(int pet_id)
 {
-	try {
-		printf("宠物合体:%08X\n", pet_id);
-		DWORD func = m_GameCall.AttachEudemon;
-		__asm
-		{
-			push pet_id
-			mov edx, dword ptr ds : [BASE_DS_OFFSET]
-			mov ecx, dword ptr ds : [edx]
-			call func
-		}
+	printf("宠物合体:%08X\n", pet_id);
+	DWORD func = m_GameCall.AttachEudemon;
+	__asm
+	{
+		push pet_id
+		mov edx, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [edx]
+		call func
 	}
-	catch (...) {
-		printf("Call_PetFuck失败\n");
+}
+
+// 宠物解体
+void Game::Call_PetUnFuck(int pet_id)
+{
+	printf("宠物解体:%08X\n", pet_id);
+	DWORD func = m_GameCall.UnAttachEudemon;
+	__asm
+	{
+		push pet_id
+		mov edx, dword ptr ds : [BASE_DS_OFFSET]
+		mov ecx, dword ptr ds : [edx]
+		call func
 	}
 }
 
@@ -1160,18 +1137,13 @@ void Game::Call_CheckTeam(int v)
 	if (!m_GameAddr.TeamChkSta)
 		return;
 
-	try {
-		DWORD _esi = m_GameAddr.TeamChkSta;
-		__asm
-		{
-			push v
-			mov esi, _esi
-			mov ecx, dword ptr ds : [esi + 0x1DC]
-			mov eax, 0x00CDB440
-			call eax
-		}
-	}
-	catch (...) {
-
+	DWORD _esi = m_GameAddr.TeamChkSta;
+	__asm
+	{
+		push v
+		mov esi, _esi
+		mov ecx, dword ptr ds : [esi + 0x1DC]
+		mov eax, 0x00CDB440
+		call eax
 	}
 }

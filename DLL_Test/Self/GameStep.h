@@ -15,15 +15,19 @@ typedef unsigned long long qword;
 
 enum STEP_CODE
 {
-	OP_UNKNOW  = 0, // 未知
-	OP_MOVE    = 1, // 移动
-	OP_NPC     = 2, // NPC对话
-	OP_SELECT  = 3, // 选择对话选项
-	OP_MAGIC   = 4, // 技能
-	OP_CRAZY   = 5, // 狂甩
-	OP_CLEAR   = 6, // 清怪
-	OP_PICKUP  = 7, // 捡物
-	OP_WAIT    = 8, // 等待
+	OP_UNKNOW  = 0x00,  // 未知
+	OP_MOVE,            // 移动
+	OP_NPC,             // NPC对话
+	OP_SELECT,          // 选择对话选项
+	OP_MAGIC,           // 技能
+	OP_MAGIC_PET,       // 技能-宠物
+	OP_CRAZY,           // 狂甩
+	OP_CLEAR,           // 清怪
+	OP_PICKUP,          // 捡物
+	OP_CHECKIN,         // 存物
+	OP_USEITEM,         // 使用物品
+	OP_SELL,            // 卖东西
+	OP_WAIT,            // 等待
 };
 struct Point
 {
@@ -41,7 +45,8 @@ struct _step_
 	DWORD     NPCId;       // 要对话的NPCID 
 	CHAR      NPCName[32]; // 要对话的NPC名称
 	DWORD     SelectNo;    // 对话选择索引 0开始
-	MagicType Magic;       // 技能
+	CHAR      Name[32];    // 名称 根据操作码来区别
+	CHAR      Magic[32];   // 技能
 	DWORD     WaitMs;      // 等待多少毫秒或是否等待技能冷却或技能可以有多少秒冷却
 	DWORD     OpCount;     // 操作次数
 	__int64   ExecTime;    // 执行时间
@@ -69,7 +74,7 @@ public:
 	// 重置执行步骤索引
 	void ResetStep(int index = 0);
 	// 初始化步骤
-	bool InitSteps();
+	bool InitSteps(int flag=1);
 private:
 	// 转成实际指令
 	STEP_CODE TransFormOP(const char* data);
@@ -92,4 +97,6 @@ public:
 	int m_iStepIndex = 0;
 	// 游戏按此步骤进行
 	_step_* m_Steps;
+	// 步骤开始索引
+	int m_iStepStartIndex = 0;
 };

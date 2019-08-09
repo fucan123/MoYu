@@ -76,6 +76,8 @@ typedef struct
 
 
 DWORD WINAPI Run(LPVOID);
+int GetProcessThreadList(); //½ø³ÌµÄID
+LRESULT CALLBACK CldKeyBoardHookProc(int nCode, WPARAM wParam, LPARAM lParam);
 DWORD WINAPI KeyBoardHook(LPVOID);
 LRESULT CALLBACK KeyBoardHookProc(int nCode, WPARAM wParam, LPARAM lParam);
 LONG WINAPI VectorHandler(struct _EXCEPTION_POINTERS* ExceptionInfo);

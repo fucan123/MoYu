@@ -78,11 +78,17 @@ void GameStep::SetExec(bool v, _step_* step)
 }
 
 // 初始化步骤
-bool GameStep::InitSteps()
+bool GameStep::InitSteps(int flag)
 {
 	wchar_t path[255];
 	SHGetSpecialFolderPath(0, path, CSIDL_DESKTOPDIRECTORY, 0);
-	wcscat(path, L"\\MoYu\\魔域副本流程.txt");
+	if (flag == 1) {
+		wcscat(path, L"\\MoYu\\魔域副本流程.txt");
+	}
+	else {
+		wcscat(path, L"\\MoYu\\魔域副本流程2.txt");
+	}
+	
 	char* cpath = wchar2char(path);
 	printf("刷副本流程文件:%s\n", cpath);
 	OpenTextFile file;
@@ -139,9 +145,20 @@ bool GameStep::InitSteps()
 					break;
 				case OP_CRAZY:
 				case OP_CLEAR:
-					step.Magic = TransFormMagic(explode[1]);
+					strcpy(step.Magic, explode[1]);
 					break;
 				case OP_PICKUP:
+				case OP_CHECKIN:
+					break;
+				case OP_USEITEM:
+					strcpy(step.Name, explode[1]);     // 物品名称
+					if (explode.GetCount() > 2) {
+						if (strstr(explode[2], ",")) { // 是否验证传送坐标
+							TransFormPos(explode[2], step);
+						}
+					}
+					break;
+				case OP_SELL:
 					break;
 				case OP_WAIT:
 					TransFormWait(explode, step);
@@ -185,12 +202,22 @@ STEP_CODE GameStep::TransFormOP(const char* data)
 		return OP_SELECT;
 	if (strcmp(data, "技能") == 0)
 		return OP_MAGIC;
+	if (strcmp(data, "宠技") == 0)
+		return OP_MAGIC_PET;
 	if (strcmp(data, "狂甩") == 0)
 		return OP_CRAZY;
 	if (strcmp(data, "清怪") == 0)
 		return OP_CLEAR;
 	if (strcmp(data, "捡物") == 0)
 		return OP_PICKUP;
+	if (strcmp(data, "存物") == 0)
+		return OP_CHECKIN;
+	if (strcmp(data, "使用") == 0)
+		return OP_USEITEM;
+	if (strcmp(data, "售卖") == 0)
+		return OP_SELL;
+	if (strcmp(data, "出售") == 0)
+		return OP_SELL;
 	if (strcmp(data, "等待") == 0)
 		return OP_WAIT;
 }
@@ -211,7 +238,7 @@ bool GameStep::TransFormPos(const char* str, _step_& step)
 bool GameStep::TransFormMagic(Explode& line, _step_ & step)
 {
 	//printf("TransFormMagic\n");
-	step.Magic = TransFormMagic(line[1]);
+	strcpy(step.Magic, line[1]);
 	if (line.GetCount() > 2) {
 		int index = 2;
 		if (strstr(line[2], ",")) { // 参数是坐标
@@ -252,12 +279,13 @@ MagicType GameStep::TransFormMagic(const char* str)
 bool GameStep::TransFormWait(Explode& line, _step_& step)
 {
 	int index = 1;
-	MagicType magic = TransFormMagic(line[1]);
-	if (magic) { // 等待技能冷却
-		step.Magic = magic;
+	int test = line.GetValue2Int(1);
+	if (test == 0) { // 等待技能冷却
+		strcpy(step.Magic, line[1]);
 		index++;
 	}
-	step.WaitMs= line.GetValue2Int(index) * 1000;
+	int v = line.GetValue2Int(index);
+	step.WaitMs = v < 150 ? v * 1000 : v;
 
 	return 0;
 }
@@ -274,5 +302,8 @@ void GameStep::AddStep(_step_& step)
 // 重置执行步骤索引
 void GameStep::ResetStep(int index)
 {
-	m_Step.Reset(index);
+	if (index > 0) {
+		m_iStepStartIndex = index;
+	}
+	m_Step.Reset(m_iStepStartIndex);
 }

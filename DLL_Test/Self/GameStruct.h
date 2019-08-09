@@ -10,14 +10,30 @@
 #define INLOGVARP(p,...) { sprintf_s(p,__VA_ARGS__);INLOG(p); }
 #define INLOGVARN(n,...) {char _s[n]; INLOGVARP(_s,__VA_ARGS__); }
 
+#define WND_TITLE_A         "【魔域】"
 #define WND_TITLE           L"【魔域】"
 #define MOD_3drole          L"3drole.dll"
 #define MOD_3dgamemap       L"3dgamemap.dll"
 #define MOD_sound           L"sound.dll"
+
+#define BUTTON_ID_ROLE      0x3ED         // 任务按钮ID
+#define BUTTON_ID_CLOSESHOP 0x450         // 关闭商店按钮
+#define BUTTON_ID_CLOSEBAG  0x471         // 关闭背包按钮
+#define BUTTON_ID_CLOSECKIN 0x485         // 关闭仓库按钮
+#define BUTTON_ID_CLOSEMENU 0x49C         // 通用菜单关闭按钮
+#define BUTTON_ID_VIP       0x5AD         // VIP按钮ID
+#define BUTTON_ID_SURE      0x8BA         // 确定按钮
+#define BUTTON_ID_CHECKIN   0x960         // 物品仓库按钮ID
+#define BUTTON_ID_LEAVE     0x9F1         // 离开练功房按钮
+
+#define HOOK_KBD_FUNC       0xD3B990      // 游戏WH_KETBOARD钩子处理函数地址
+#define HOOK_MOUSE_FUNC     0xD3B5F0      // 游戏WH_MOUSE钩子处理函数地址
+
 #define ADDR_ACCOUNT_NAME   0x11BD5E4     // 登录帐号名称
 #define ADDR_ROLE_NAME      0x11B8EDC     // 游戏角色名称
-#define ADDR_COOR_X_OFFSET  0x11EC164     // X坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_COOR_Y_OFFSET  0x11EC168     // Y坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_SERVER_NAME    0x11BD7E4     // 游戏区服名称
+#define ADDR_COOR_X_OFFSET  0x11F79F4     // X坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_COOR_Y_OFFSET  0x11F79F8     // Y坐标地址在模块里面的偏移[MOD_3drole]
 #define ADDR_MOV_STA_OFFSET 0x4A7A60      // 人物移动状态在模块里面偏移[MOD_sound]
 #define ADDR_TALKBOX_PTR    0x10A97C8     // 对话框打开状态地址指针[Soul.exe+CA97C8]
 // mov eax,[edi+00005394] << EDI=05B7D020
@@ -27,7 +43,9 @@
 
 //02C5965B:?MagicAttack@CHero@@QAEXIIHH@Z
 //02C55656: ? MagicAttack@CHero@@QAEXIUC3_POS@@HH@Z
-#define BASE_DS_OFFSET      0xF1A518               // 游戏常用偏移 mov ecx, dword ptr ds : [0xF07500]
+#define BASE_DS_OFFSET      0xF26518               // 游戏常用偏移 mov ecx, dword ptr ds : [0xF07500]
+#define BASE_PET_OFFSET     0x10CFDA8              // 宠物列表基址
+
 // F1C730 2218-21F4=24 6B8
 #define CALLTALK_DS_COMMON  (BASE_DS_OFFSET-0x04)   // 喊话-公共频道   CHero::Talk.6
 #define CALLTALK_DS_TEAM    (BASE_DS_OFFSET-0x08)   // 喊话-队伍
@@ -47,7 +65,7 @@
 // CALL偏移
 enum CALL_DATA_OFFSET {
 	RUN_3drole = 0x621379,          // 人物移动函数 CHero::run(x, y, 0)
-	NPCTALK_EAX_3drole = 0x1327858, // NPC二级对话EAX数值
+	NPCTALK_EAX_3drole = 0x13330F8, // NPC二级对话EAX数值
 	NPCTALK_EDI_3drole = 0xEF1E68,  // NPC二级对话EDI数值
 };
 // 0001933E 000193EC
@@ -61,19 +79,24 @@ typedef struct game_mod_addr
 // 游戏CALL地址
 typedef struct game_call
 {
-	DWORD Run;              // 游戏移动地址    CHero::Run(x, y, 0);
-	DWORD ActiveNpc;        // NPC对话        CHero::ActiveNpc.2
-	DWORD UseItem;          // 使用物品        CHero::UseItem.5
-	DWORD DropItem;         // 丢弃物品        CHero::DropItem.3
-	DWORD PickUpItem;       // 捡拾物品        CHero::PickUpItem.3
-	DWORD MagicAttack_GWID; // 使用技能-怪物ID  CHero::MagicAttack.4
-	DWORD MagicAttack_XY;   // 使用技能-XY坐标  CHero::MagicAttack.5
-	DWORD CallEudenmon;     // 宠物出征        CHero::CallEudenmon
-	DWORD KillEudenmon;     // 宠物召回        CHero::KillEudenmon 
-	DWORD AttachEudemon;    // 宠物合体        CHero::AttachEudemon
-	DWORD UnAttachEudemon;  // 宠物解体        CHero::UnAttachEudemon
-	DWORD SetRealLife;      // 设置真是血量     CPlayer::SetRealLife 
-	DWORD CloseTipBox;      // 关闭提示框      搜索特征码
+	DWORD Run;                 // 游戏移动地址    CHero::Run(x, y, 0);
+	DWORD ActiveNpc;           // NPC对话        CHero::ActiveNpc.2
+	DWORD UseItem;             // 使用物品        CHero::UseItem.5
+	DWORD DropItem;            // 丢弃物品        CHero::DropItem.3
+	DWORD PickUpItem;          // 捡拾物品        CHero::PickUpItem.3
+	DWORD SellItem;            // 卖东西          CHero::SellItem.1
+	DWORD CheckInItem;         // 存入远程仓库     CHero::CheckInItem.1
+	DWORD OpenBank;            // 打开远程银行
+	DWORD TransmByMemoryStone; // 使用可传送物品   CHero::TransmByMemoryStone.1
+	DWORD MagicAttack_GWID;    // 使用技能-怪物ID  CHero::MagicAttack.4
+	DWORD MagicAttack_XY;      // 使用技能-XY坐标  CHero::MagicAttack.5
+	DWORD CallEudenmon;        // 宠物出征        CHero::CallEudenmon
+	DWORD KillEudenmon;        // 宠物召回        CHero::KillEudenmon 
+	DWORD AttachEudemon;       // 宠物合体        CHero::AttachEudemon
+	DWORD UnAttachEudemon;     // 宠物解体        CHero::UnAttachEudemon
+	DWORD SetRealLife;         // 设置真是血量     CPlayer::SetRealLife 
+	DWORD CloseTipBox;         // 关闭提示框      搜索特征码
+	DWORD GetNpcBaseAddr;      // 获取NPC地址基址 在3dRole中搜索特征码
 } GameCall;
 
 // 029B0208 - 23c0000 = 5F0208
@@ -109,7 +132,8 @@ typedef struct game_wnd
 // 游戏物品类型
 enum ITEM_TYPE
 {
-	速效治疗包        =  0x000B5593, // 可以开出几瓶速效治疗药水
+	未知物品          = 0x00,       // 不知道什么物品
+	速效治疗包        = 0x000B5593, // 可以开出几瓶速效治疗药水
 	神恩治疗药水      = 0x000B783C,
 	速效治疗药水      = 0x000F6982, // +2500生命值
 	速效圣兽灵药      = 0x000F943E, // 复活宝宝的
@@ -120,35 +144,52 @@ enum ITEM_TYPE
 	幻魔晶石          = 0x000FD372,
 };
 
+// 自动捡拾物品信息
+typedef struct conf_item_info
+{
+	CHAR      Name[32];
+	ITEM_TYPE Type;
+} ConfItemInfo;
+
 // 游戏自己拥有物品信息
 typedef struct game_self_item
 {
-	DWORD Fix;  // 应该是固定值
-	DWORD Id;   // ID
-	DWORD Fix2; // 应该是固定值
-	DWORD Type; // 类型
+	DWORD Fix;      // 应该是固定值
+	DWORD Id;       // ID
+	DWORD Fix2;     // 应该是固定值
+	DWORD Type;     // 类型
+	CHAR  Name[32]; // 名称
+	BYTE  Mid[736]; // ...
+	DWORD ToX;      // 可传送的点(X)
+	DWORD ToY;      // 可传送的点(Y)
 } GameSelfItem;
 
 // 游戏物品信息
 typedef struct game_ground_item
 {
-	DWORD Id;     // ID
-	DWORD Type;   // 类型
-	DWORD Zero;   // 未知
-	DWORD X;      // X坐标 
-	DWORD Y;      // Y坐标
+	DWORD Id;        // ID
+	DWORD Type;      // 类型
+	DWORD Zero;      // 未知
+	DWORD X;         // X坐标 
+	DWORD Y;         // Y坐标
+	DWORD UnKnow[5]; // 未知
+	CHAR* Name;      // 此值+54为物品名称
 } GameGroundItem;
 
-// 怪物
-typedef struct game_guaiwu
+// 游戏中玩家或NPC或怪物
+typedef struct game_player
 {
-	BYTE  UnKnow[0xB4];  // 未知
-	DWORD X;             // X坐标
-	DWORD Y;             // Y坐标
-	BYTE  UnKnow2[0x40]; // 未知
-	DWORD Id;            // ID
-	DWORD Type;          // 类型
-} GameGuaiWu;
+	BYTE  UnKnow[0xB4];   // 未知
+	DWORD X;              // X坐标
+	DWORD Y;              // Y坐标
+	BYTE  UnKnow2[0x40];  // 未知
+	DWORD Id;             // ID  偏移0xFC
+	DWORD Type;           // 类型
+	BYTE  UnKnow3[0x41C]; // 未知
+	CHAR  Name[32];       // 名称 偏移0x520
+	BYTE  UnKnow4[0x980]; // 未知
+	DWORD Life;           // 血量 偏移EC0
+} GamePlayer;
 
 // 正在执行CALL类型
 enum CallStepType

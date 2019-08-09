@@ -1,6 +1,9 @@
 #pragma once
 #include "GameStruct.h"
 
+typedef LRESULT(CALLBACK *Game_KbdProc)(int nCode, WPARAM wParam, LPARAM lParam);
+typedef LRESULT(CALLBACK *Game_MouseProc)(int nCode, WPARAM wParam, LPARAM lParam);
+
 // 搜索模块中方法名称需要的信息
 typedef struct search_mod_func_msg
 {
@@ -11,6 +14,12 @@ typedef struct search_mod_func_msg
 	const char*   Remark;  // 说明
 } SearchModFuncMsg;
 
+// 游戏g_pObjHero全局变量
+extern DWORD g_pObjHero;
+// 游戏g_objPlayerSet全局变量
+extern DWORD g_objPlayerSet;
+
+class GameConf;
 class GameProc;
 class Item;
 class Talk;
@@ -42,6 +51,8 @@ public:
 	void FindAllCall();
 	// 获取关闭提示框函数
 	DWORD FindCloseTipBoxCall();
+	// 获取获取NPC基地址函数
+	DWORD FindGetNpcBaseAddr();
 	// 获取模块地址
 	DWORD FindModAddr(LPCWSTR name);
 	// 比较登录帐号
@@ -54,8 +65,8 @@ public:
 	bool ReadQuickKey2Num(int* nums, int length);
 	// 读取包包物品
 	bool ReadBag(DWORD* bag, int length);
-	// 攻击怪物
-	void AttackGuaiWu();
+	// 获得窗口句柄
+	bool FindButtonWnd(int button_id, HWND& hwnd, HWND& parent);
 	// 获取坐标地址
 	bool FindCoorAddr();
 	// 获取移动状态地址
@@ -68,8 +79,6 @@ public:
 	bool FindTipBoxStaAddr();
 	// 获取生命地址
 	bool FindLifeAddr();
-	// 获取快捷键上面物品数量地址
-	bool FindQuickKeyAddr();
 	// 获取背包代码
 	bool FindBagAddr();
 	// 获得地面物品地址的保存地址
@@ -113,8 +122,6 @@ public:
 
 	// 怪物数量
 	DWORD        m_dwGuaiWuCount;
-	// 怪物指针[数组 会new]
-	GameGuaiWu** m_pGuaiWus;
 
 	// 是否读取完毕
 	bool  m_bIsReadEnd;
@@ -125,6 +132,8 @@ public:
 	// 读取内容临时内存
 	BYTE* m_pReadBuffer;
 
+	// 游戏的配置类
+	GameConf* m_pGameConf;
 	// 游戏过程处理类
 	GameProc* m_pGameProc;
 	// 物品类
@@ -143,16 +152,16 @@ public:
 	// 自身
 	static Game* self;
 public:
-	// 正在执行的CALL
-	static CallStep m_CallStep;
-	// 是否正在执行CALL
-	bool static IsCalling();
-	// CALL是否已完成
-	bool static CallIsComplete();
-	// 设置CALL STEP数据
-	void static SetCallStep(CallStepType type, DWORD v1, DWORD v2=0);
-	// 清除CALL STEP数据
-	void static ClearCallStep();
+	// 枚举窗口
+	static BOOL CALLBACK EnumProc(HWND hWnd, LPARAM lParam);
+	// 枚举子窗口
+	static BOOL CALLBACK EnumChildProc(HWND hWnd, LPARAM lParam);
+	// 按键
+	void static Keyborad(int type, int key);
+	// 按键
+	void static KeyDown(char key);
+	// 按键
+	void static KeyUp(char key);
 	// 人物移动函数
 	void static Call_Run(int x, int y);
 	// 喊话CALL
@@ -169,6 +178,12 @@ public:
 	void static Call_DropItem(int item_id);
 	// 捡物品
 	void static Call_PickUpItem(GameGroundItem* p);
+	// 卖东西
+	void static Call_SellItem(int item_id);
+	// 存入远程仓库
+	void static Call_CheckInItem(int item_id);
+	// 使用可传送物品
+	void static Call_TransmByMemoryStone(int item_id);
 	// 放技能
 	void static Call_Magic(int magic_id, int guaiwu_id);
 	// 放技能
@@ -179,6 +194,8 @@ public:
 	void static Call_PetIn(int pet_id);
 	// 宠物合体
 	void static Call_PetFuck(int pet_id);
+	// 宠物解体
+	void static Call_PetUnFuck(int pet_id);
 	// 是否选择邀请队伍
 	void static Call_CheckTeam(int v=1);
 };

@@ -16,6 +16,9 @@ class Talk
 public:
 	// ...
 	Talk(Game* p);
+
+	// 初始化数据
+	void InitData();
 	// 清除搜索了的
 	void ClearSearched();
 	// NPC
@@ -36,8 +39,14 @@ public:
 	bool WaitTalkBoxOpen();
 	// 获取NPCID
 	DWORD GetNPCId(const char* name);
+	// 读取NPC数量
+	DWORD ReadNPCCount();
+	// 读取NPC
+	DWORD ReadNPC(const char* name=nullptr, GamePlayer** save=nullptr, DWORD save_count=0, bool no_repeat=true);
+	// 获取当前角色血量
+	DWORD GetLife(GamePlayer* p);
 	// 读取周围NPC
-	bool ReadNPC();
+	bool ReadNPC_Old();
 public:
 	// 游戏类
 	Game* m_pGame;

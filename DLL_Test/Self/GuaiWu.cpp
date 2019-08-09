@@ -1,5 +1,6 @@
 #include "GuaiWu.h"
 #include "Game.h"
+#include "Talk.h"
 #include <stdio.h>
 #include <My/Common/mystring.h>
 
@@ -7,6 +8,12 @@
 GuaiWu::GuaiWu(Game * p)
 {
 	m_pGame = p;
+	InitData();
+}
+
+// 初始化数据
+void GuaiWu::InitData()
+{
 	m_bSearchName = false;
 	InitAttack();
 }
@@ -28,24 +35,25 @@ bool GuaiWu::HasInArea(DWORD cx, DWORD cy)
 bool GuaiWu::IsInArea(const char* name, IN OUT DWORD& x, IN OUT DWORD& y)
 {
 	//printf("要搜索的怪物:%s %d,%d\n", name, x, y);
-	m_dwCX = x;
-	m_dwCY = y;
-	strcpy(m_sSearChName, name);
-	m_bSearchName = true;
-	m_pGame->ReadGameMemory(0x10); // 获取怪物列表
-	x = m_dwCX;
-	y = m_dwCY;
-	bool result = m_bSearchName == false;
-	m_bSearchName == false;
+	GamePlayer* p = NULL;
+	m_pGame->m_pTalk->ReadNPC(name, &p, 1, false);
+	if (!p)
+		return false;
+
+	m_pGame->ReadCoor();
+	DWORD cx = abs((int)m_pGame->m_dwX - (int)p->X);
+	DWORD cy = abs((int)m_pGame->m_dwY - (int)p->Y);
+	bool result = cx <= x && cy <= y;
+	if (result) {
+		x = p->X;
+		y = p->Y;
+	}
 	return result;
 }
 
 // 清理怪物
-bool GuaiWu::Clear(MagicType type, DWORD cx, DWORD cy)
+bool GuaiWu::Clear(const char* magic_name, DWORD cx, DWORD cy)
 {
-	if (type == 未知技能)
-		return false;
-
 	m_bIsClear = true;
 	m_dwCX = cx;
 	m_dwCY = cy;
@@ -58,8 +66,8 @@ bool GuaiWu::Clear(MagicType type, DWORD cx, DWORD cy)
 			break;
 
 		try {
-			printf("GuaiWu::Clear->UseMagic:%08X %d,%d\n", type, m_pAttack->X, m_pAttack->Y);
-			m_pGame->m_pMagic->UseMagic(type, m_pAttack->X, m_pAttack->Y, m_pAttack->Id);
+			printf("GuaiWu::Clear->UseMagic:%s %d,%d\n", magic_name, m_pAttack->X, m_pAttack->Y);
+			m_pGame->m_pMagic->UseMagic(magic_name, m_pAttack->X, m_pAttack->Y, m_pAttack->Id);
 		}
 		catch (...) {
 			printf("GuaiWu::Clear怪物无效\n");
@@ -80,7 +88,7 @@ void GuaiWu::InitAttack()
 }
 
 // 设置被攻击怪物
-void GuaiWu::SetAttack(GameGuaiWu * p)
+void GuaiWu::SetAttack(GamePlayer * p)
 {
 	m_pAttack = p;
 	m_i64AttackTime = getmillisecond();
@@ -95,7 +103,7 @@ bool GuaiWu::IsIgnoreAttack()
 		if (!m_pAttack->Id || !m_pAttack->X || !m_pAttack->Y) { // 信息无效
 			throw nullptr;
 		}
-		if (!GetLife(m_pAttack)) { // 无血量
+		if (!GetLife(m_pAttack, 0)) { // 无血量
 			printf("GuaiWu::IsIgnoreAttack怪物血量为0\n");
 			throw nullptr;
 		}
@@ -133,12 +141,12 @@ bool GuaiWu::ReadGuaiWu()
 				//printf("不相等%d!=%d\n", i, i + m_dwGuaiWuCount);
 			//}
 			try {
-				GameGuaiWu* pGuaiWu = (GameGuaiWu*)address[i];
+				GamePlayer* pGuaiWu = (GamePlayer*)address[i];
 				//printf("怪物地址:%08X\n", pGuaiWu);
 				//continue;
 				if (pGuaiWu->X > 0 && pGuaiWu->Y > 0 && pGuaiWu->Type) {
 					char* name = (char*)((DWORD)address[i] + 0x520);
-					DWORD life = GetLife(pGuaiWu);
+					DWORD life = GetLife(pGuaiWu, i);
 
 					printf("%02d[%08X].%s[%08X]: x:%X[%d] y:%X[%d] 类型:%X 血量:%d\n", i + 1, pGuaiWu, name, pGuaiWu->Id, pGuaiWu->X, pGuaiWu->X, pGuaiWu->Y, pGuaiWu->Y, pGuaiWu->Type, life);
 
@@ -177,7 +185,7 @@ bool GuaiWu::ReadGuaiWu()
 }
 
 // 获取怪物当前血量
-DWORD GuaiWu::GetLife(GameGuaiWu* p)
+DWORD GuaiWu::GetLife(GamePlayer* p, DWORD no)
 {
 	// 搜索方式:CE找出怪物血量, 下访问断点->OD访问地址下断点, 调用堆栈返回到CPlayer::GetData->调试即可
 	// 直接得到CPlayer::GetData里面查看
@@ -188,6 +196,11 @@ DWORD GuaiWu::GetLife(GameGuaiWu* p)
 		mov  esi, [ebp + 0x8]       // mov esi,dword ptr ss:[ebp+0x8]
 		sub  esi, 1                 // sub esi,ecx[ecx应该固定是1]
 		dec  esi                    // dec esi
+		mov  eax, dword ptr no
+		mov  edx, 0
+		sub  eax, edx
+		mov  esi, eax
+		sar  esi, 1
 		mov  eax, [ebp + 0xC]       // mov eax,dword ptr ss:[ebp+0xC]
 		mov  eax, [eax + esi * 8]   // 血量
 		pop  ebp

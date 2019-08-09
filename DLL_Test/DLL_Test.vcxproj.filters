@@ -63,6 +63,9 @@
     <ClInclude Include="Self\Pet.h">
       <Filter>Self</Filter>
     </ClInclude>
+    <ClInclude Include="Self\GameConf.h">
+      <Filter>Self</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -102,6 +105,9 @@
       <Filter>Self</Filter>
     </ClCompile>
     <ClCompile Include="Self\Pet.cpp">
+      <Filter>Self</Filter>
+    </ClCompile>
+    <ClCompile Include="Self\GameConf.cpp">
       <Filter>Self</Filter>
     </ClCompile>
   </ItemGroup>

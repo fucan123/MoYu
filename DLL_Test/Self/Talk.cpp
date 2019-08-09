@@ -7,6 +7,12 @@
 Talk::Talk(Game * p)
 {
 	m_pGame = p;
+	InitData();
+}
+
+// 初始化数据
+void Talk::InitData()
+{
 	m_bIsSearchNPC = false;
 	ClearSearched();
 }
@@ -33,12 +39,15 @@ DWORD Talk::NPC(const char* name)
 		npc_id = GetNPCId(name);
 		if (npc_id) {
 			NPC(npc_id);
+			break;
+#if 0
 			if (WaitTalkBoxOpen()) {
 				break;
 			}
 			else {
 				printf("NPC可能无效.\n");
 			}
+#endif
 		}
 		Sleep(500);
 	}
@@ -54,32 +63,26 @@ void Talk::NPCTalk(DWORD no)
 // NPC对话状态[对话框是否打开]
 bool Talk::NPCTalkStatus()
 {
-	try {
-		return PtrToDword(m_pGame->m_GameAddr.TalKBoxSta) != 0;
-	}
-	catch (...) {
-		printf("Talk::NPCTalkStatus失败\n");
+	if (!m_pGame->m_GameAddr.TalKBoxSta)
 		return false;
-	}
+
+	return PtrToDword(m_pGame->m_GameAddr.TalKBoxSta) != 0;
 }
 
 // 是否选择邀请队伍
 bool Talk::CheckTeamSta()
 {
 	// +29C0是TeamChkSta偏移头 +100是选择框状态
-	return PtrToDword(m_pGame->m_GameAddr.TalKBoxSta + 0x29C0 + 0x100) != 0;
+	return PtrToDword(m_pGame->m_GameAddr.TeamChkSta + 0x29C0 + 0x100) != 0;
 }
 
 // 提示框是否打开
 bool Talk::TipBoxStatus()
 {
-	try {
-		return PtrToDword(m_pGame->m_GameAddr.TipBoxSta + 0xA0) != 0;
-	}
-	catch (...) {
-		printf("Talk::TipBoxStatus失败\n");
+	if (!m_pGame->m_GameAddr.TipBoxSta)
 		return false;
-	}
+
+	return PtrToDword(m_pGame->m_GameAddr.TipBoxSta + 0xA0) != 0;
 }
 
 // 关闭提示框
@@ -93,7 +96,7 @@ bool Talk::WaitTalkBoxOpen()
 {
 	__int64 ms = getmillisecond();
 	while (!NPCTalkStatus()) {
-		if (getmillisecond() > (ms + 3000)) { // 超过3秒
+		if (getmillisecond() > (ms + 2000)) { // 超过3秒
 			return false;
 		}
 		Sleep(100);
@@ -104,22 +107,110 @@ bool Talk::WaitTalkBoxOpen()
 // 获取NPCID
 DWORD Talk::GetNPCId(const char* name)
 {
-	strcpy(m_chSearchNPCName, name);
-	m_bIsSearchNPC = true;
-	m_dwSearchNPCId = 0;
-	m_pGame->ReadGameMemory(0x20);
-	m_bIsSearchNPC = false;
+	GamePlayer* p = NULL;
+	ReadNPC(name, &p, 1, true);
+	return p ? p->Id : 0;
+}
 
-	return m_dwSearchNPCId;
+// 读取NPC数量
+DWORD Talk::ReadNPCCount()
+{
+	if (!g_objPlayerSet)
+		return 0;
+
+	return PtrToDword(g_objPlayerSet + 0x14 + 0x2C);
+}
+
+// 读取NPC
+DWORD Talk::ReadNPC(const char* name, GamePlayer** save, DWORD save_count, bool no_repeat)
+{
+	if (!m_pGame->m_GameCall.GetNpcBaseAddr)
+		return 0;
+
+	DWORD dwSaveCount = 0;
+	DWORD dwCount = ReadNPCCount();
+	DWORD _ecx = g_objPlayerSet + 0x14;
+	DWORD func = m_pGame->m_GameCall.GetNpcBaseAddr;
+	printf("周围角色数量:%d\n", dwCount);
+	for (DWORD i = 0; i < dwCount; i++) {
+		GamePlayer* pGamePlayer;
+		__asm
+		{
+			push i
+			mov ecx, _ecx
+			call func
+			mov eax, dword ptr ds : [eax]
+			mov dword ptr[pGamePlayer], eax
+		}
+		if (!pGamePlayer->Id)
+			continue;
+
+		DWORD life = pGamePlayer->Life;
+		printf("角色[%08X]:%s %08X 坐标:%d,%d 血量:%d\n", pGamePlayer, pGamePlayer->Name, pGamePlayer->Id, pGamePlayer->X, pGamePlayer->Y, life);
+		if (!save)
+			continue;
+
+		bool is_repeat = false;
+		bool is_save = true;
+		if (name) {
+			is_save = false;
+			if (strcmp(pGamePlayer->Name, name) == 0) {
+				//printf("NPC[%08X]:%s %08X\n", addr, npc_name, npc_id);
+				if (no_repeat) { // 不允许重复
+					for (DWORD j = 0; j < m_dwIsSearchCount; j++) { // 已经搜索了的 不再使用
+						if (m_ListIsSearch[j] == pGamePlayer->Id) {
+							printf("角色重复:%s %08X\n", pGamePlayer->Name, pGamePlayer->Id);
+							is_repeat = true;
+							break;
+						}
+					}
+				}
+				is_save = true;
+			}
+		}
+		if (is_save) {
+			save[dwSaveCount++] = pGamePlayer;
+			if (is_repeat) { // 重复的数据
+				dwSaveCount--;
+			}
+			else {
+				if (no_repeat) { // 不允许重复
+					m_ListIsSearch[m_dwIsSearchCount++] = pGamePlayer->Id;
+				}
+			}
+			if (dwSaveCount == save_count)
+				break;
+		}
+	}
+	return dwSaveCount;
+}
+
+// 获取角色当前血量
+DWORD Talk::GetLife(GamePlayer* p)
+{
+	// 搜索方式:CE找出怪物血量, 下访问断点->OD访问地址下断点, 调用堆栈返回到CPlayer::GetData->调试即可
+	// 直接得到CPlayer::GetData里面查看
+	__asm {
+		push ebp
+		mov  ebp, dword ptr p
+		mov  ebp, [ebp + 0x15FC]    // mov ecx,dword ptr ds:[edx+0x15FC]
+		mov  esi, [ebp + 0x8]       // mov esi,dword ptr ss:[ebp+0x8]
+		sub  esi, 1                 // sub esi,ecx[ecx应该固定是1]
+		dec  esi                    // dec esi
+		mov  eax, [ebp + 0xC]       // mov eax,dword ptr ss:[ebp+0xC]
+		mov  eax, [eax + esi * 8]   // 血量
+		pop  ebp
+	}
 }
 
 // 读取怪物
-bool Talk::ReadNPC()
+bool Talk::ReadNPC_Old()
 {
 	//printf("搜索NPC\n");
 	// 搜索方法:找到NPCID->CE搜索查找合适地址
 	// 4:0x03E5D678 4:* 4:* 4:* 4:* 4:0x00 4:0x00 4:0xFFFFFFDB
-	// 4:0x03D8C650 4:* 4:* 4:* 4:* 4:0x00 4:0x00 4:0xFFFFFFDB 4:0x00
+	// eax=25B74A38 ecx=0361BE48
+	// CRole::IsPlayer esi==0656B710 edx=260679DC ebx=25F96DE8 25F96D68
 	DWORD codes[] = {
 		0x1234D678, 0x00000011, 0x00000011, 0x00000011,
 		0x00000011, 0x00000000, 0x00000000, 0xFFFFFFDB,

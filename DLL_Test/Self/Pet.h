@@ -18,6 +18,8 @@ public:
 
 	// 宠物出征
 	bool  PetOut(DWORD* nums, DWORD length, bool fuck=true);
+	// 宠物解体
+	bool  PetUnFuck(DWORD* nums, DWORD length);
 	// 复活所有没有血量宠物
 	DWORD Revive();
 	// 读取拥有宠物

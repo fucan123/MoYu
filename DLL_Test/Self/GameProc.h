@@ -22,6 +22,9 @@ class GameProc
 public:
 	// !!!
 	GameProc(Game* pGame);
+
+	// 初始化数据
+	void InitData();
 	// 运行
 	void Run();
 	// 步骤是否已执行完毕
@@ -34,12 +37,20 @@ public:
 	void Select();
 	// 技能
 	void Magic();
+	// 技能-宠物
+	void MagicPet();
 	// 狂甩
 	void Crazy();
 	// 清怪
 	void Clear();
 	// 捡物
 	void PickUp();
+	// 存物
+	void CheckIn();
+	// 使用物品
+	void UseItem();
+	// 售卖物品
+	void SellItem();
 	// 等待
 	void Wait();
 	// 等待
@@ -67,6 +78,8 @@ public:
 	GameStep* m_pGameStep;
 	// 正在执行的步骤
 	_step_* m_pStep;
+	// 选择哪个配置文件
+	int  m_iChkFile = 1;
 	// 是否停止
 	bool  m_bStop = false;
 	// 是否暂停
@@ -76,13 +89,19 @@ public:
 	// 是否狂甩
 	bool m_bIsCrazy = false;
 	// 狂甩技能
-	MagicType m_CrazyMagic;
+	char m_CrazyMagic[32];
+
+	// 是否清掉凯瑞
+	DWORD m_dwKairi = 0;
+	// 搜索凯瑞时间
+	__int64 m_i64SearchKairi;
+
 	// 上一次执行步骤的相关信息
 	struct {
-		DWORD     MvX;   // 移动X
-		DWORD     MvY;   // 移动Y
-		DWORD     NPCId; // NPCId
-		MagicType Magic; // 技能
+		DWORD MvX;       // 移动X
+		DWORD MvY;       // 移动Y
+		DWORD NPCId;     // NPCId
+		CHAR  Magic[32]; // 技能
 	} m_stLastStepInfo;
 	// 人物坐标
 	DWORD   m_iCoorX = 0;
