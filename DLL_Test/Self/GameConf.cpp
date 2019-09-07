@@ -15,6 +15,7 @@ GameConf::GameConf(Game* p)
 	memset(&m_stPetOut,  0, sizeof(m_stPetOut));
 	memset(&m_stPickUp,  0, sizeof(m_stPickUp));
 	memset(&m_stCheckIn, 0, sizeof(m_stCheckIn));
+	memset(&m_Setting,   0, sizeof(m_Setting));
 }
 
 // 读取配置文件
@@ -36,6 +37,11 @@ bool GameConf::ReadConf()
 	char data[128];
 	while ((length = file.GetLine(data, 128)) > -1) {
 		if (length == 0) {
+			continue;
+		}
+		if (strstr(data, "=")) {
+			trim(data);
+			ReadSetting(data);
 			continue;
 		}
 		//printf("%d %s", length, data);
@@ -139,6 +145,16 @@ void GameConf::ReadCheckIn(const char* data)
 	m_stCheckIn.Length++;
 
 	printf("%d.自动存入物品:%s %08X\n", m_stCheckIn.Length, data, type);
+}
+
+// 读取其它设置
+void GameConf::ReadSetting(const char * data)
+{
+	Explode explode("=", data);
+	if (strcmp(explode[0], "流程文件") == 0) {
+		strcpy(m_Setting.FBFile, explode[1]);
+	}
+	printf("%s:%s\n", explode[0], explode[1]);
 }
 
 // 转成物品类型

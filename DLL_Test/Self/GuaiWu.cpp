@@ -54,6 +54,7 @@ bool GuaiWu::IsInArea(const char* name, IN OUT DWORD& x, IN OUT DWORD& y)
 // «Â¿Ìπ÷ŒÔ
 bool GuaiWu::Clear(const char* magic_name, DWORD cx, DWORD cy)
 {
+	return false;
 	m_bIsClear = true;
 	m_dwCX = cx;
 	m_dwCY = cy;

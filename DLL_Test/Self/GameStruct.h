@@ -4,6 +4,11 @@
 #define ToDwordPtr(v) ((DWORD*)(v))  // 转成DWORD指针
 #define PtrToDword(v) (*(DWORD*)(v)) // 转成DWORD数值
 #define PtrVToDwordPtr(v) ToDwordPtr(PtrToDword(v)) // 先取此地址的值再把值转成DWORD指针
+#define P2DW(v) (*(DWORD*)(v))       // 转成DWORD数值
+#define P2INT(v) (*(int*)(v))        // 转成int数值
+
+#define SET_VAR(var,v) var=v;
+#define SET_VAR2(var,v,var2,v2) var=v;var2=v2;
 
 // Game::Call_Talk(v, 2)
 #define INLOG(v) (v)
@@ -16,26 +21,34 @@
 #define MOD_3dgamemap       L"3dgamemap.dll"
 #define MOD_sound           L"sound.dll"
 
-#define BUTTON_ID_ROLE      0x3ED         // 任务按钮ID
+#define BUTTON_ID_ROLE      0x3ED         // 人物按钮ID
+#define BUTTON_ID_TEAM      0x3F3         // 队伍按钮
+#define BUTTON_ID_CANCEL    0x44E         // 取消按钮
 #define BUTTON_ID_CLOSESHOP 0x450         // 关闭商店按钮
 #define BUTTON_ID_CLOSEBAG  0x471         // 关闭背包按钮
+#define BUTTON_ID_TIPSURE   0x477         // 提示确定按钮
 #define BUTTON_ID_CLOSECKIN 0x485         // 关闭仓库按钮
 #define BUTTON_ID_CLOSEMENU 0x49C         // 通用菜单关闭按钮
 #define BUTTON_ID_VIP       0x5AD         // VIP按钮ID
+#define BUTTON_ID_TEAMFLAG  0x713         // 同意入队那个旗帜按钮
+#define BUTTON_ID_INFB      0x7B2         // 同意进副本按钮
+#define BUTTON_ID_INTEAM    0x815         // 同意入队按钮
 #define BUTTON_ID_SURE      0x8BA         // 确定按钮
 #define BUTTON_ID_CHECKIN   0x960         // 物品仓库按钮ID
 #define BUTTON_ID_LEAVE     0x9F1         // 离开练功房按钮
+#define BUTTON_ID_LOGIN     0xA30         // 登入按钮
+#define BUTTON_ID_ROLENO    0xD51         // 选择角色框[后面角色应该是+1递增]
 
 #define HOOK_KBD_FUNC       0xD3B990      // 游戏WH_KETBOARD钩子处理函数地址
 #define HOOK_MOUSE_FUNC     0xD3B5F0      // 游戏WH_MOUSE钩子处理函数地址
 
-#define ADDR_ACCOUNT_NAME   0x11BD5E4     // 登录帐号名称
-#define ADDR_ROLE_NAME      0x11B8EDC     // 游戏角色名称
+#define ADDR_ACCOUNT_NAME   0x11F8234     // 登录帐号名称
+#define ADDR_ROLE_NAME      0x11F3B24     // 游戏角色名称
 #define ADDR_SERVER_NAME    0x11BD7E4     // 游戏区服名称
-#define ADDR_COOR_X_OFFSET  0x11F79F4     // X坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_COOR_Y_OFFSET  0x11F79F8     // Y坐标地址在模块里面的偏移[MOD_3drole]
-#define ADDR_MOV_STA_OFFSET 0x4A7A60      // 人物移动状态在模块里面偏移[MOD_sound]
-#define ADDR_TALKBOX_PTR    0x10A97C8     // 对话框打开状态地址指针[Soul.exe+CA97C8]
+#define ADDR_COOR_X_OFFSET  0x1226DAC     // X坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_COOR_Y_OFFSET  0x1226DB0     // Y坐标地址在模块里面的偏移[MOD_3drole]
+#define ADDR_LIFE_OFFSET    0x11F3A58     // 血量地址在模块里面的偏移[MOD_3drole]
+#define ADDR_LIFEMAX_OFFSET 0x11F3A5C     // 血量上限地址在模块里面的偏移[MOD_3drole]
 // mov eax,[edi+00005394] << EDI=05B7D020
 #define ADDR_TALKBOX_REAL   (PtrToDword(ADDR_TALKBOX_PTR)+0x5394)
 #define CHD_TALBOX_STATUS   0x00         // 0-对话框没有打开 1-打开
@@ -43,8 +56,20 @@
 
 //02C5965B:?MagicAttack@CHero@@QAEXIIHH@Z
 //02C55656: ? MagicAttack@CHero@@QAEXIUC3_POS@@HH@Z
-#define BASE_DS_OFFSET      0xF26518               // 游戏常用偏移 mov ecx, dword ptr ds : [0xF07500]
+#define BASE_DS_OFFSET      0xF42518               // 游戏常用偏移 mov ecx, dword ptr ds : [0xF07500]
 #define BASE_PET_OFFSET     0x10CFDA8              // 宠物列表基址
+
+#define ASM_STORE_ECX() \
+    DWORD __ecx__; \
+    __asm { mov __ecx__, ecx }
+
+#define ASM_RESTORE_ECX() \
+    __asm { mov ecx, __ecx__ }
+
+#define ASM_SET_ECX() { \
+	 __asm { mov ecx, g_pObjHero } \
+	 __asm { mov ecx, dword ptr ds: [ecx] } \
+ }
 
 // F1C730 2218-21F4=24 6B8
 #define CALLTALK_DS_COMMON  (BASE_DS_OFFSET-0x04)   // 喊话-公共频道   CHero::Talk.6
@@ -60,13 +85,27 @@
 #define CALLPETFUCK_DS      (BASE_DS_OFFSET+0x1564) // 宠物合体        CHero::AttachEudemon
 #define CALLPETUNFUCK_DS    (BASE_DS_OFFSET+0x06BC) // 宠物解体        CHero::UnAttachEudemon
 
-#define GUAIWU_MAX          100          // 最大读取怪物数量
+typedef void(__stdcall* _FUNC)();
+typedef void(__stdcall* _FUNC1)(DWORD);
+typedef void(__stdcall* _FUNC2)(DWORD, DWORD);
+typedef void(__stdcall* _FUNC3)(DWORD, DWORD, DWORD);
+typedef void(__stdcall* _FUNC4)(DWORD, DWORD, DWORD, DWORD);
+typedef void(__stdcall* _FUNC5)(DWORD, DWORD, DWORD, DWORD, DWORD);
+typedef void(__stdcall* _FUNC6)(DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+
+typedef DWORD(__stdcall* _FUNC_R)();
+typedef DWORD(__stdcall* _FUNC1_R)(DWORD);
+typedef DWORD(__stdcall* _FUNC2_R)(DWORD, DWORD);
+typedef DWORD(__stdcall* _FUNC3_R)(DWORD, DWORD, DWORD);
+typedef DWORD(__stdcall* _FUNC4_R)(DWORD, DWORD, DWORD, DWORD);
+typedef DWORD(__stdcall* _FUNC5_R)(DWORD, DWORD, DWORD, DWORD, DWORD);
+typedef DWORD(__stdcall* _FUNC6_R)(DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
 
 // CALL偏移
 enum CALL_DATA_OFFSET {
-	RUN_3drole = 0x621379,          // 人物移动函数 CHero::run(x, y, 0)
-	NPCTALK_EAX_3drole = 0x13330F8, // NPC二级对话EAX数值
-	NPCTALK_EDI_3drole = 0xEF1E68,  // NPC二级对话EDI数值
+	//RUN_3drole = 0x621379,          // 人物移动函数 CHero::run(x, y, 0)
+	NPCTALK_EAX_3drole = 0x13632D0, // NPC二级对话EAX数值
+	//NPCTALK_EDI_3drole = 0xEF1E68,  // NPC二级对话EDI数值
 };
 // 0001933E 000193EC
 // 游戏模块地址
@@ -79,24 +118,41 @@ typedef struct game_mod_addr
 // 游戏CALL地址
 typedef struct game_call
 {
-	DWORD Run;                 // 游戏移动地址    CHero::Run(x, y, 0);
-	DWORD ActiveNpc;           // NPC对话        CHero::ActiveNpc.2
-	DWORD UseItem;             // 使用物品        CHero::UseItem.5
-	DWORD DropItem;            // 丢弃物品        CHero::DropItem.3
-	DWORD PickUpItem;          // 捡拾物品        CHero::PickUpItem.3
-	DWORD SellItem;            // 卖东西          CHero::SellItem.1
-	DWORD CheckInItem;         // 存入远程仓库     CHero::CheckInItem.1
-	DWORD OpenBank;            // 打开远程银行
-	DWORD TransmByMemoryStone; // 使用可传送物品   CHero::TransmByMemoryStone.1
-	DWORD MagicAttack_GWID;    // 使用技能-怪物ID  CHero::MagicAttack.4
-	DWORD MagicAttack_XY;      // 使用技能-XY坐标  CHero::MagicAttack.5
-	DWORD CallEudenmon;        // 宠物出征        CHero::CallEudenmon
-	DWORD KillEudenmon;        // 宠物召回        CHero::KillEudenmon 
-	DWORD AttachEudemon;       // 宠物合体        CHero::AttachEudemon
-	DWORD UnAttachEudemon;     // 宠物解体        CHero::UnAttachEudemon
-	DWORD SetRealLife;         // 设置真是血量     CPlayer::SetRealLife 
-	DWORD CloseTipBox;         // 关闭提示框      搜索特征码
-	DWORD GetNpcBaseAddr;      // 获取NPC地址基址 在3dRole中搜索特征码
+	DWORD ReBorn;                 // 人物复活       CHero::ReBorn.1
+	DWORD Run;                    // 游戏移动地址    CHero::Run(x, y, 0);
+	DWORD ActiveNpc;              // NPC对话        CHero::ActiveNpc.2
+	DWORD ITaskGetInstance;       // NPC对话选择指针 ITaskManager::GetInstance
+	DWORD GetPkageItemByIndex;    // 获取包裹物品指针 CHero::GetPackageItemByIndex
+	DWORD UseItem;                // 使用物品        CHero::UseItem.5
+	DWORD DropItem;               // 丢弃物品        CHero::DropItem.3
+	DWORD PickUpItem;             // 捡拾物品        CHero::PickUpItem.3
+	DWORD SellItem;               // 卖东西          CHero::SellItem.1
+	DWORD SaveMoney;              // 存钱            CHero::SaveMoney.1
+	DWORD CheckInItem;            // 存入远程仓库     CHero::CheckInItem.1
+	DWORD CheckOutItem;           // 取出物品        CHero::CheckOutItem.3
+	DWORD OpenBank;               // 打开远程银行
+	DWORD TransmByMemoryStone;    // 使用可传送物品   CHero::TransmByMemoryStone.1
+	DWORD MagicAttack_GWID;       // 使用技能-怪物ID  CHero::MagicAttack.4
+	DWORD MagicAttack_XY;         // 使用技能-XY坐标  CHero::MagicAttack.5
+	DWORD CallEudenmon;           // 宠物出征        CHero::CallEudenmon
+	DWORD KillEudenmon;           // 宠物召回        CHero::KillEudenmon 
+	DWORD AttachEudemon;          // 宠物合体        CHero::AttachEudemon
+	DWORD UnAttachEudemon;        // 宠物解体        CHero::UnAttachEudemon
+	DWORD SetRealLife;            // 设置真是血量     CPlayer::SetRealLife 
+	DWORD QueryInf_RemoteTeam;    // 远程邀请人物地址 CHero::QueryInterface_RemoteTeam
+	DWORD IsHaveTeam;             // 是否有队伍      CHero::IsHaveTeam
+	DWORD IsTeamLeader;           // 是否是队长      CHero::IsTeamLeader
+	DWORD TeamCreate;             // 创建队伍        CHero::TeamCreate
+	DWORD TeamDismiss;            // 离开队伍[队长]   CHero::TeamDismiss
+	DWORD TeamLeave;              // 离开队伍[队员]   CHero::TeamLeave
+	DWORD TeamInvite;             // 邀请入队        CHero::TeamInvite.1
+	DWORD TeamAutoJoin;           // 自动组队        CHero::SetAutoJoinStatus.1
+
+	DWORD NPCTalk;                // NPC选项        在soul.exe搜索特征码
+	DWORD TeamChk;                // 副本选择邀请队伍 在soul.exe搜索特征码
+	DWORD KeyNum;                 // 数字按键       在soul.exe搜索特征码
+	DWORD CloseTipBox;            // 关闭提示框      在soul.exe搜索特征码
+	DWORD GetNpcBaseAddr;         // 获取NPC地址基址 在3dRole中搜索特征码
 } GameCall;
 
 // 029B0208 - 23c0000 = 5F0208
@@ -111,6 +167,7 @@ typedef struct game_addr
 	DWORD MovSta;         // 移动状态
 	DWORD TalKBoxSta;     // 对话框状态
 	DWORD TeamChkSta;     // 进入副本是否勾选了邀请队伍
+	DWORD TeamChkOffset;  // mov ecx,dword ptr ds:[esi+0x1F0] 0x1F0是变动的
 	DWORD TipBoxSta;      // 提示框状态
 	DWORD QuickKeyNum;    // 快捷键上面物品数量(F1那一排)
 	DWORD QuickKey2Num;   // 快捷键上面物品数量(1 那一排)
@@ -119,6 +176,8 @@ typedef struct game_addr
 	DWORD ItemPtr;        // 保存的为地面物品指针首地址 *Itemptr=地面物品地址首地址 *(Itemptr+4)=地面物品地址末地址
 	DWORD CallNpcTalkEsi; // NPC二级对话ESI寄存器数值
 	DWORD PetPtr;         // 宠物列表基地址 详见宠物类
+	DWORD MapName;        // 地图名称
+	DWORD KeyNumEcxPtr;   // 数字按键函数所需ECX的指针地址
 } GameAddr;
 
 // 游戏窗口信息
@@ -154,7 +213,7 @@ typedef struct conf_item_info
 // 游戏自己拥有物品信息
 typedef struct game_self_item
 {
-	DWORD Fix;      // 应该是固定值
+	DWORD Fix;      // 应该是某函数
 	DWORD Id;       // ID
 	DWORD Fix2;     // 应该是固定值
 	DWORD Type;     // 类型
@@ -163,6 +222,7 @@ typedef struct game_self_item
 	DWORD ToX;      // 可传送的点(X)
 	DWORD ToY;      // 可传送的点(Y)
 } GameSelfItem;
+
 
 // 游戏物品信息
 typedef struct game_ground_item
@@ -190,6 +250,17 @@ typedef struct game_player
 	BYTE  UnKnow4[0x980]; // 未知
 	DWORD Life;           // 血量 偏移EC0
 } GamePlayer;
+
+// 游戏中玩家或NPC或怪物
+typedef struct player
+{
+	DWORD X;              // X坐标
+	DWORD Y;              // Y坐标
+	DWORD Id;             // ID  偏移0xFC
+	DWORD Type;           // 类型
+	CHAR  Name[32];       // 名称 偏移0x520
+	DWORD Life;           // 血量 偏移EC0
+} Player;
 
 // 正在执行CALL类型
 enum CallStepType

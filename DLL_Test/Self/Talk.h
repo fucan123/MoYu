@@ -26,7 +26,7 @@ public:
 	// NPC
 	DWORD NPC(const char* name);
 	// NPC对话选择项
-	void NPCTalk(DWORD no);
+	void NPCTalk(DWORD no, bool close = true);
 	// NPC对话状态[对话框是否打开]
 	bool NPCTalkStatus();
 	// 是否选择邀请队伍
@@ -37,6 +37,8 @@ public:
 	void CloseTipBox(int close=0);
 	// 等待对话框打开
 	bool WaitTalkBoxOpen();
+	// 获取NPC信息
+	bool GetNPCInfo(PVOID addr, Player& info, bool isid=false);
 	// 获取NPCID
 	DWORD GetNPCId(const char* name);
 	// 读取NPC数量
@@ -45,6 +47,8 @@ public:
 	DWORD ReadNPC(const char* name=nullptr, GamePlayer** save=nullptr, DWORD save_count=0, bool no_repeat=true);
 	// 获取当前角色血量
 	DWORD GetLife(GamePlayer* p);
+	// 获取远程邀请人物信息
+	DWORD ReadRemotePlayer(const char* name = nullptr);
 	// 读取周围NPC
 	bool ReadNPC_Old();
 public:
@@ -61,4 +65,6 @@ public:
 	DWORD m_dwIsSearchCount;
 	// 已经搜索了的NPCId列表
 	DWORD m_ListIsSearch[32];
+
+	DWORD m_Test[0x1000];
 };

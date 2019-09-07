@@ -1,6 +1,9 @@
 #pragma once
 #include "GameStruct.h"
 #include <My/Common/Link.hpp>
+#include <vector>
+
+using namespace std;
 
 typedef unsigned char      u_char;
 typedef unsigned int       u_int;
@@ -17,6 +20,7 @@ enum STEP_CODE
 {
 	OP_UNKNOW  = 0x00,  // 未知
 	OP_MOVE,            // 移动
+	OP_MOVEFAR,         // 传送
 	OP_NPC,             // NPC对话
 	OP_SELECT,          // 选择对话选项
 	OP_MAGIC,           // 技能
@@ -26,7 +30,9 @@ enum STEP_CODE
 	OP_PICKUP,          // 捡物
 	OP_CHECKIN,         // 存物
 	OP_USEITEM,         // 使用物品
+	OP_DROPITEM,        // 丢物
 	OP_SELL,            // 卖东西
+	OP_BUTTON,          // 点击按钮
 	OP_WAIT,            // 等待
 };
 struct Point
@@ -49,6 +55,8 @@ struct _step_
 	CHAR      Magic[32];   // 技能
 	DWORD     WaitMs;      // 等待多少毫秒或是否等待技能冷却或技能可以有多少秒冷却
 	DWORD     OpCount;     // 操作次数
+	DWORD     ButtonId;    // 按钮ID
+	DWORD     Extra[8];    // 扩展
 	__int64   ExecTime;    // 执行时间
 	bool      Exec;        // 已在执行
 };
@@ -60,21 +68,21 @@ public:
 	// ...
 	GameStep();
 	// 获取正在执行的步骤
-	_step_* Current();
+	_step_* Current(vector<_step_*>& link);
 	// 完成正在执行步骤 返回下一个
-	_step_* CompleteExec();
+	_step_* CompleteExec(vector<_step_*>& link);
 	// 获得当前步骤操作码
-	STEP_CODE CurrentCode();
+	STEP_CODE CurrentCode(vector<_step_*>& link);
 	// 获得下一步骤操作码
-	STEP_CODE NextCode();
-	// 获取已执行了多久时间
-	int GetHasExecMs(_step_* step = nullptr);
-	// 设置执行状态
-	void SetExec(bool v, _step_* step=nullptr);
+	STEP_CODE NextCode(vector<_step_*>& link);
 	// 重置执行步骤索引
 	void ResetStep(int index = 0);
 	// 初始化步骤
-	bool InitSteps(int flag=1);
+	bool InitSteps(const char* file);
+	// 初始化去雷鸣步骤
+	int InitGoLeiMingSteps();
+	// 解析步骤
+	int ParseStep(const char* data, vector<_step_*>& link);
 private:
 	// 转成实际指令
 	STEP_CODE TransFormOP(const char* data);
@@ -90,11 +98,15 @@ private:
 	void AddStep(_step_& step);
 public:
 	// 游戏步骤链表
-	Link<_step_*> m_Step;
+	vector<_step_*> m_Step;
+	// 神殿去雷鸣步骤链表
+	vector<_step_*> m_GoLeiMingStep;
 	// 游戏步骤数量
 	int m_iStepCount = 0;
 	// 当前执行步骤索引
 	int m_iStepIndex = 0;
+	// 当前执行步骤索引[m_GoLeiMingStep]
+	int m_iStepGoLMIndex = 0;
 	// 游戏按此步骤进行
 	_step_* m_Steps;
 	// 步骤开始索引

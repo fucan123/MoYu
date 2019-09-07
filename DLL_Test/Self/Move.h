@@ -42,4 +42,6 @@ public:
 	__int64 m_i64IsMvTime;
 	// ÒÆ¶¯Ê±¼ä
 	__int64 m_i64MvTime;
+
+	CHAR m_Test[0x1000];
 };

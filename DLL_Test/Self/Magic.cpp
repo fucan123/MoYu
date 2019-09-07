@@ -1,6 +1,7 @@
 #include "Magic.h"
 #include "Game.h"
 #include <My/Common/mystring.h>
+#include <My/Driver/KbdMou.h>
 #include <stdio.h>
 
 // ...
@@ -9,24 +10,26 @@ Magic::Magic(Game* p)
 	m_pGame = p;
 	m_dwAttackGWId = 0;
 
+	m_dwMagicNum = 0;
 	m_dwMagicInfoCount = 0;
 }
 
 // 使用技能
 bool Magic::UseMagic(const char* name, DWORD x, DWORD y, DWORD gwid)
 {
-	GameMagic* pMagic = ReadMagic(name);
-	if (!pMagic) {
-		printf("找不到技能:%s\n", name);
-		return false;
+	MagicInfo* pInfo = GetMagicInfo(name);
+	if (!pInfo) {
+		_Magic_ magic;
+		if (!ReadMagic(name, &magic)) {
+			printf("找不到技能:%s\n", name);
+			return false;
+		}
+
+		printf("添加技能:%s 冷却时间:%d秒\n", name, magic.Cd);
+		pInfo = AddMagicInfo(magic.Name, magic.Id, magic.Cd);
 	}
 	
-	MagicInfo* pInfo = GetMagicInfo(pMagic->Id);
-	if (!pInfo) {
-		printf("添加技能:%s 冷却时间:%d秒\n", name, pMagic->Cd);
-		pInfo = AddMagicInfo(pMagic->Id, pMagic->Cd);
-	}
-	else if (!CheckCd(pMagic->Id)) {
+	if (!CheckCd(pInfo)) {
 		printf("技能未冷却:%s\n", name);
 		//return false;
 	}
@@ -36,11 +39,21 @@ bool Magic::UseMagic(const char* name, DWORD x, DWORD y, DWORD gwid)
 	//printf("UseMagic:%d %d,%d %d\n", type, v, v2, p->CallType);
 	//return false;
 	if (MagicIsPos(name)) {
-		Game::Call_Magic(pMagic->Id, x, y);
+		if (strstr(name, "最终审判")) { // 此技能鼠标停哪打哪
+			SetForegroundWindow(m_pGame->m_hWnd);
+			int sx = m_pGame->m_GameWnd.Width / 2, sy = m_pGame->m_GameWnd.Height / 2;
+			m_pGame->GetGameCenterPos(sx, sy);
+			sy -= 20;
+			printf("鼠标移动:%d,%d\n", sx, sy);
+			//m_pGame->MouseMove(sx, sy);
+			mouse_event(MOUSEEVENTF_MOVE|MOUSEEVENTF_ABSOLUTE, sx, sy, 0, 0);//点击
+			
+		}
+		m_pGame->Call_Magic(pInfo->Id, x, y);
 		return true;
 	}
 	else {
-		Game::Call_Magic(pMagic->Id, gwid);
+		m_pGame->Call_Magic(pInfo->Id, gwid);
 		return true;
 	}
 	return false;
@@ -49,13 +62,8 @@ bool Magic::UseMagic(const char* name, DWORD x, DWORD y, DWORD gwid)
 // 检查冷却时间[allow_ms=允许最大还剩此冷却]
 bool Magic::CheckCd(const char* name, DWORD allow_ms, DWORD* magic_id)
 {
-	GameMagic* pMagic = ReadMagic(name);
-	if (!pMagic)
-		return true;
-	if (magic_id)
-		*magic_id = pMagic->Id;
-
-	return CheckCd(pMagic->Id);
+	MagicInfo* pInfo = GetMagicInfo(name);
+	return CheckCd(pInfo, allow_ms);
 }
 
 // 检查冷却时间[allow_ms=允许最大还剩此冷却]
@@ -69,6 +77,28 @@ bool Magic::CheckCd(DWORD id, DWORD allow_ms)
 
 	__int64 t = p->CdTime - getmillisecond();
 	return t <= (__int64)allow_ms;
+}
+
+// 检查冷却时间[allow_ms=允许最大还剩此冷却]
+bool Magic::CheckCd(MagicInfo* p, DWORD allow_ms)
+{
+	if (p == nullptr)
+		return true;
+	if (!p->CdTime)
+		return true;
+
+	__int64 t = p->CdTime - getmillisecond();
+	return t <= (__int64)allow_ms;
+}
+
+// 获取技能信息
+MagicInfo* Magic::GetMagicInfo(const char* name)
+{
+	for (DWORD i = 0; i < m_dwMagicInfoCount; i++) {
+		if (strstr(m_ListMagicInfo[i].Name, name) != nullptr)
+			return &m_ListMagicInfo[i];
+	}
+	return nullptr;
 }
 
 // 获取技能信息
@@ -89,9 +119,12 @@ bool Magic::MagicIsPos(const char* name)
 }
 
 // 读取技能数量
-int Magic::ReadMagicLength()
+int Magic::ReadMagicLength(bool flag)
 {
+	if (m_dwMagicNum)
+		return m_dwMagicNum;
 	// CHero::GetMagic里面寻找
+#if 0
 	__asm
 	{
 		mov ecx, dword ptr ds : [BASE_DS_OFFSET]
@@ -101,19 +134,35 @@ int Magic::ReadMagicLength()
 		sub eax, dword ptr ds : [ecx + 0x4]
 		sar eax, 0x2
 	}
+#else
+	DWORD p = 0, n = 0, n2 = 0;
+	if (m_pGame->ReadDwordMemory(g_pObjHero, p)) {
+		p += 0x2914;
+		if (m_pGame->ReadDwordMemory(p + 0x08, n)
+			&& m_pGame->ReadDwordMemory(p + 0x04, n2)) {
+			n = (n - n2) >> 2;
+		}
+	}
+	return n;
+#endif
 }
 
 // 读取技能
-GameMagic* Magic::ReadMagic(const char* name)
+bool Magic::ReadMagic(const char* name, _Magic_* save, bool flag)
 {
 	// 4F60 51E6
 	// CHero::GetMagic里面寻找
-	int length = ReadMagicLength();
+	int length = ReadMagicLength(flag);
 	if (name == nullptr) {
 		printf("技能数量:%d[%08X]\n", length, length);
 	}
+	if (length > 100) {
+		printf("技能数量大于%d, 可能有错误\n");
+		return false;
+	}
 	for (int i = 0; i < length; i++) {
-		GameMagic* p;
+#if 0
+		GameMagic* pMagic;
 		__asm
 		{
 			mov ecx, dword ptr ds : [BASE_DS_OFFSET]
@@ -128,22 +177,54 @@ GameMagic* Magic::ReadMagic(const char* name)
 			//mov eax, dword ptr ds : [eax + 0x4]       // 这个就是放技能函数要传的参数
 			//mov dword ptr [magic], eax
 		}
-		if (name) {
-			if (strstr(p->Name, name)) {
-				return p;
+#else
+		DWORD p = 0, n = 0;
+		if (m_pGame->ReadDwordMemory(g_pObjHero, p)) {
+			p += 0x2914;
+			if (m_pGame->ReadDwordMemory(p + 0x04, p)) {
+				if (m_pGame->ReadDwordMemory(p + (i * 4), p)) {
+					m_pGame->ReadDwordMemory(p + 0x28, p);
+				}
+			}
+			
+		}
+		if (!p)
+			break;
+#endif
+		if (save) {
+			bool is_ok = false;
+			char* p_name;
+			if (m_pGame->ReadDwordMemory(p + 0x0C, (DWORD&)p_name)) {
+				if (m_pGame->ReadMemory(p_name, save->Name, sizeof(save->Name))) {
+					save->Name[31] = 0;
+					if (strstr(save->Name, name)) {
+						is_ok = true;
+					}
+				}
+			}
+			if (is_ok) {
+				if (!m_pGame->ReadDwordMemory(p + 0x04, save->Id))
+					return false;
+				if (!m_pGame->ReadDwordMemory(p + 0x5C, save->Cd))
+					return false;
+
+				return true;
 			}
 		}
 		else {
-			printf("%08X.%s:%08X 冷却时间:%d\n", p, p->Name, p->Id, p->Cd);
+			GameMagic* pMagic  = (GameMagic*)p;
+			printf("%08X.%s:%08X 冷却时间:%d\n", pMagic, pMagic->Name, pMagic->Id, pMagic->Cd);
+			AddMagicInfo(pMagic->Name, pMagic->Id, pMagic->Cd);
 		}
 	}
-	return nullptr;
+	return false;
 }
 
 // 添加技能信息
-MagicInfo* Magic::AddMagicInfo(DWORD id, DWORD cd)
+MagicInfo* Magic::AddMagicInfo(CHAR* name, DWORD id, DWORD cd)
 {
 	MagicInfo* p = &m_ListMagicInfo[m_dwMagicInfoCount];
+	strcpy(p->Name, name);
 	p->Id = id;
 	p->Cd = (cd + 1) * 1000;
 	p->UseTime = 0;

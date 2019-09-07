@@ -26,7 +26,7 @@ void Talk::ClearSearched()
 // NPC
 void Talk::NPC(DWORD npc_id)
 {
-	Game::Call_NPC(npc_id);
+	m_pGame->Call_NPC(npc_id);
 }
 
 // NPC
@@ -55,9 +55,9 @@ DWORD Talk::NPC(const char* name)
 }
 
 // NPC对话选择项
-void Talk::NPCTalk(DWORD no)
+void Talk::NPCTalk(DWORD no, bool close)
 {
-	Game::Call_NPCTalk(no);
+	m_pGame->Call_NPCTalk(no, close);
 }
 
 // NPC对话状态[对话框是否打开]
@@ -66,14 +66,18 @@ bool Talk::NPCTalkStatus()
 	if (!m_pGame->m_GameAddr.TalKBoxSta)
 		return false;
 
-	return PtrToDword(m_pGame->m_GameAddr.TalKBoxSta) != 0;
+	DWORD v = 0;
+	m_pGame->ReadDwordMemory(m_pGame->m_GameAddr.TalKBoxSta, v);
+	return v != 0;
 }
 
 // 是否选择邀请队伍
 bool Talk::CheckTeamSta()
 {
 	// +29C0是TeamChkSta偏移头 +100是选择框状态
-	return PtrToDword(m_pGame->m_GameAddr.TeamChkSta + 0x29C0 + 0x100) != 0;
+	DWORD v = 0;
+	m_pGame->ReadDwordMemory(m_pGame->m_GameAddr.TeamChkSta + 0x29C0 + 0x100, v);
+	return v != 0;
 }
 
 // 提示框是否打开
@@ -82,13 +86,15 @@ bool Talk::TipBoxStatus()
 	if (!m_pGame->m_GameAddr.TipBoxSta)
 		return false;
 
-	return PtrToDword(m_pGame->m_GameAddr.TipBoxSta + 0xA0) != 0;
+	DWORD v = 0;
+	m_pGame->ReadDwordMemory(m_pGame->m_GameAddr.TipBoxSta + 0xA0, v);
+	return v != 0;
 }
 
 // 关闭提示框
 void Talk::CloseTipBox(int close)
 {
-	Game::Call_CloseTipBox(close);
+	//m_pGame->Call_CloseTipBox(close);
 }
 
 // 等待对话框打开
@@ -96,7 +102,7 @@ bool Talk::WaitTalkBoxOpen()
 {
 	__int64 ms = getmillisecond();
 	while (!NPCTalkStatus()) {
-		if (getmillisecond() > (ms + 2000)) { // 超过3秒
+		if (getmillisecond() > (ms + 1500)) { // 超过3秒
 			return false;
 		}
 		Sleep(100);
@@ -104,12 +110,46 @@ bool Talk::WaitTalkBoxOpen()
 	return true;
 }
 
+// 获取NPC信息
+bool Talk::GetNPCInfo(PVOID addr, Player& info, bool isid)
+{
+	ZeroMemory(info.Name, sizeof(info.Name));
+	DWORD ptr = (DWORD)addr;
+	if (isid) {
+		return m_pGame->ReadDwordMemory(ptr + 0xFC, info.Id);
+	}
+	else {
+		if (!m_pGame->ReadDwordMemory(ptr + 0xB4, info.X))
+			return false;
+		if (!m_pGame->ReadDwordMemory(ptr + 0xB8, info.Y))
+			return false;
+		if (!m_pGame->ReadDwordMemory(ptr + 0xFC, info.Id))
+			return false;
+		if (!m_pGame->ReadDwordMemory(ptr + 0x100, info.Type))
+			return false;
+		if (!m_pGame->ReadMemory((PVOID)(ptr + 0x520), info.Name, sizeof(info.Name)))
+			return false;
+		if (!m_pGame->ReadDwordMemory(ptr + 0xEC0, info.Life))
+			return false;
+
+		return true;
+	}
+}
+
 // 获取NPCID
 DWORD Talk::GetNPCId(const char* name)
 {
 	GamePlayer* p = NULL;
 	ReadNPC(name, &p, 1, true);
-	return p ? p->Id : 0;
+	if (!p)
+		return 0;
+
+	Player player;
+	if (!GetNPCInfo(p, player, true)) {
+		printf("无法获取NPC信息[GetNPCId](%d) %08X\n", GetLastError(), p);
+		return 0;
+	}
+	return player.Id;
 }
 
 // 读取NPC数量
@@ -118,7 +158,9 @@ DWORD Talk::ReadNPCCount()
 	if (!g_objPlayerSet)
 		return 0;
 
-	return PtrToDword(g_objPlayerSet + 0x14 + 0x2C);
+	DWORD count = 0;
+	m_pGame->ReadDwordMemory(g_objPlayerSet + 0x14 + 0x2C, count);
+	return count;
 }
 
 // 读取NPC
@@ -127,26 +169,24 @@ DWORD Talk::ReadNPC(const char* name, GamePlayer** save, DWORD save_count, bool 
 	if (!m_pGame->m_GameCall.GetNpcBaseAddr)
 		return 0;
 
+	//212,502 865,500
 	DWORD dwSaveCount = 0;
 	DWORD dwCount = ReadNPCCount();
 	DWORD _ecx = g_objPlayerSet + 0x14;
 	DWORD func = m_pGame->m_GameCall.GetNpcBaseAddr;
 	printf("周围角色数量:%d\n", dwCount);
 	for (DWORD i = 0; i < dwCount; i++) {
-		GamePlayer* pGamePlayer;
-		__asm
-		{
-			push i
-			mov ecx, _ecx
-			call func
-			mov eax, dword ptr ds : [eax]
-			mov dword ptr[pGamePlayer], eax
+		GamePlayer* pGamePlayer = (GamePlayer*)m_pGame->Call_GetBaseAddr(i, _ecx);
+		Player player;
+		if (!GetNPCInfo(pGamePlayer, player)) {
+			printf("无法获取NPC信息(%d) %08X\n", GetLastError(), pGamePlayer);
+			continue;
 		}
-		if (!pGamePlayer->Id)
+		if (player.Id == 0x00)
 			continue;
 
-		DWORD life = pGamePlayer->Life;
-		printf("角色[%08X]:%s %08X 坐标:%d,%d 血量:%d\n", pGamePlayer, pGamePlayer->Name, pGamePlayer->Id, pGamePlayer->X, pGamePlayer->Y, life);
+		DWORD life = player.Life;
+		printf("角色[%08X]:%s %08X 坐标:%d,%d 血量:%d\n", pGamePlayer, player.Name, player.Id, player.X, player.Y, life);
 		if (!save)
 			continue;
 
@@ -154,12 +194,12 @@ DWORD Talk::ReadNPC(const char* name, GamePlayer** save, DWORD save_count, bool 
 		bool is_save = true;
 		if (name) {
 			is_save = false;
-			if (strcmp(pGamePlayer->Name, name) == 0) {
+			if (strcmp(player.Name, name) == 0) {
 				//printf("NPC[%08X]:%s %08X\n", addr, npc_name, npc_id);
 				if (no_repeat) { // 不允许重复
 					for (DWORD j = 0; j < m_dwIsSearchCount; j++) { // 已经搜索了的 不再使用
-						if (m_ListIsSearch[j] == pGamePlayer->Id) {
-							printf("角色重复:%s %08X\n", pGamePlayer->Name, pGamePlayer->Id);
+						if (m_ListIsSearch[j] == player.Id) {
+							printf("角色重复:%s %08X\n", player.Name, player.Id);
 							is_repeat = true;
 							break;
 						}
@@ -201,6 +241,24 @@ DWORD Talk::GetLife(GamePlayer* p)
 		mov  eax, [eax + esi * 8]   // 血量
 		pop  ebp
 	}
+}
+
+// 获取远程邀请人物信息
+DWORD Talk::ReadRemotePlayer(const char* name)
+{
+	for (int i = 0; ; i++) {
+		DWORD addr = m_pGame->Call_QueryRemoteTeam(i);
+		//printf("%d. %08X\n",i , addr);
+		//continue;
+		if (!addr) {
+			printf("没有了\n");
+			break;
+		}
+
+		const char* name = (const char*)P2DW(addr + 0x08);
+		printf("%d.%s\n", i, name);
+	}
+	return 0;
 }
 
 // 读取怪物

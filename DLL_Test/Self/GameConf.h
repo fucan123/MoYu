@@ -21,6 +21,8 @@ private:
 	void ReadSell(const char* data);
 	// 读取存入物品
 	void ReadCheckIn(const char* data);
+	// 读取其它设置
+	void ReadSetting(const char* data);
 	// 转成物品类型
 	ITEM_TYPE TransFormItemType(const char* item_name);
 public:
@@ -49,4 +51,9 @@ public:
 		ConfItemInfo CheckIns[MAX_CONF_ITEMS];
 		DWORD        Length;
 	} m_stCheckIn;
+
+	// 其他设置
+	struct {
+		char FBFile[64]; // 副本流程文件
+	} m_Setting;
 };

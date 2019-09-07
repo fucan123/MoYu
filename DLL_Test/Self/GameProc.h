@@ -1,6 +1,11 @@
 #pragma once
 #include "GameStruct.h"
+#include <My/Common/Link.hpp>
 #include <Windows.h>
+#include <vector>
+#include <fstream>
+
+using namespace std;
 
 #define ONE_COOR_PIX     50   // 一坐标占用像数
 #define ONE_MAX_MOV_COOR 8    // 一次最大可移动8距离坐标
@@ -25,8 +30,34 @@ public:
 
 	// 初始化数据
 	void InitData();
+	// 取消所有旗帜按钮
+	void CancelAllButton();
+	// 执行
+	void Exec();
 	// 运行
 	void Run();
+	// 邀请入队
+	bool ViteInTeam(const char* name);
+	// 入队
+	void InTeam();
+	// 邀请进副本
+	void ViteInFB();
+	// 同意进副本
+	void AgreeInFB();
+	// 神殿去雷鸣大陆流程
+	void GoLeiMing();
+	// 去领取项链
+	void GoGetXiangLian();
+	// 去副本门口
+	void GoFBDoor();
+	// 进副本
+	bool GoInFB();
+	// 出副本
+	void GoOutFB(const char* name, bool notify=true);
+	// 执行副本流程
+	void ExecInFB();
+	// 执行流程
+	bool ExecStep(vector<_step_*>& link);
 	// 步骤是否已执行完毕
 	bool StepIsComplete();
 	// 移动
@@ -45,16 +76,26 @@ public:
 	void Clear();
 	// 捡物
 	void PickUp();
+	// 存钱
+	void SaveMoney();
 	// 存物
-	void CheckIn();
+	DWORD CheckIn(bool in=true);
 	// 使用物品
 	void UseItem();
+	// 扔物品
+	void DropItem();
 	// 售卖物品
 	void SellItem();
+	// 按钮
+	void Button();
+	// 按钮
+	bool Button(int button_id, DWORD sleep_ms=0, const char* name=nullptr);
 	// 等待
 	void Wait();
 	// 等待
 	void Wait(DWORD ms);
+	// 复活
+	void ReBorn();
 	// 是否在副本
 	bool IsInFB();
 	// 读取人物坐标
@@ -66,11 +107,17 @@ public:
 	// 读取包包物品
 	bool ReadBag();
 	// 是否需要加血量
-	bool IsNeedAddLife();
+	int  IsNeedAddLife();
 	// 加血
 	void AddLife();
+	// 发送信息给服务端
+	void SendMsg(const char* v, const char* v2=nullptr);
 	// 停止
 	void Stop(bool v=true);
+	// 打开日记文件
+	void OpenLogFile();
+	// 写入日记
+	void WriteLog(const char* log, bool flush=false);
 public:
 	// 游戏指针
 	Game*     m_pGame;
@@ -78,8 +125,10 @@ public:
 	GameStep* m_pGameStep;
 	// 正在执行的步骤
 	_step_* m_pStep;
+	// 正在执行的步骤[副本]
+	_step_* m_pStepCopy;
 	// 选择哪个配置文件
-	int  m_iChkFile = 1;
+	int  m_iChkFile = 2;
 	// 是否停止
 	bool  m_bStop = false;
 	// 是否暂停
@@ -98,10 +147,12 @@ public:
 
 	// 上一次执行步骤的相关信息
 	struct {
-		DWORD MvX;       // 移动X
-		DWORD MvY;       // 移动Y
-		DWORD NPCId;     // NPCId
-		CHAR  Magic[32]; // 技能
+		DWORD MvX;         // 移动X
+		DWORD MvY;         // 移动Y
+		DWORD NPCId;       // NPCId
+		CHAR  NPCName[32]; // NPC名称
+		CHAR  Magic[32];   // 技能
+		bool  IsOut;       // 是否出副本
 	} m_stLastStepInfo;
 	// 人物坐标
 	DWORD   m_iCoorX = 0;
@@ -118,4 +169,20 @@ public:
 	DWORD m_dwBag[BAG_NUM];
 	// 加血时间
 	__int64 m_i64AddLifeTime = 0;
+
+	// 是否锁定进入副本
+	bool m_bLockGoFB = false;
+	// 是否在副本里面
+	bool m_bAtFB = false;
+	// 保留治疗药数量
+	int  m_iNeedYao = 6;
+	// 保留治疗包数量
+	int  m_iNeedBao = 6;
+
+	// 是否最后BOSS
+	bool m_bLastBoss = false;
+	// 是否发送出去副本
+	bool m_bSendOut = false;
+
+	ofstream m_LogFile;
 };

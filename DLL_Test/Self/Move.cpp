@@ -24,9 +24,9 @@ bool Move::Run(DWORD x, DWORD y)
 			return false;
 	}
 
-	printf("Move::Run:%d,%d 自己位置：%d,%d\n", x, y, m_dwX, m_dwY);
+	//printf("Move::Run:%d,%d 自己位置：%d,%d\n", x, y, m_dwX, m_dwY);
 	SetMove(x, y);
-	Game::Call_Run(x, y);
+	m_pGame->Call_Run(x, y);
 
 	return true;
 }
@@ -65,6 +65,7 @@ bool Move::IsMoveEnd()
 
 	m_i64IsEndTime = ms;
 	m_pGame->ReadCoor(&m_dwX, &m_dwY); // 读取当前坐标
+	//printf("IsMoveEnd %d,%d %d,%d\n", m_dwX, m_dwY, m_dwMvX, m_dwMvY);
 	return m_dwX == m_dwMvX && m_dwY == m_dwMvY;
 }
 
@@ -78,7 +79,9 @@ bool Move::IsMove()
 	m_i64IsMvTime = ms;
 
 	if (m_pGame->m_GameAddr.MovSta) { // 此地址保存移动状态 0-未移动 1-在移动
-		return PtrToDword(m_pGame->m_GameAddr.MovSta) == 1;
+		DWORD v = 0;
+		m_pGame->ReadDwordMemory(m_pGame->m_GameAddr.MovSta, v);
+		return v == 1;
 	}
 
 	if (!m_dwLastX || !m_dwLastY)

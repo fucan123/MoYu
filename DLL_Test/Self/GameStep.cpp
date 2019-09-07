@@ -12,7 +12,6 @@
 
 #define MAX_STEP 512
 
-
 // ...
 GameStep::GameStep()
 {
@@ -20,170 +19,184 @@ GameStep::GameStep()
 }
 
 // 获取当前可执行的步骤
-_step_* GameStep::Current()
+_step_* GameStep::Current(vector<_step_*>& link)
 {
-	NODE<_step_*>* node = m_Step.Current();
-	//INLOGVARN(32, "Current Index:%d", m_iStepIndex);
-	return node ? node->value : nullptr;
+	if (m_iStepIndex >= link.size())
+		return nullptr;
+
+	return link[m_iStepIndex];
 }
 
 // 完成正在执行步骤 返回下一个
-_step_* GameStep::CompleteExec()
+_step_* GameStep::CompleteExec(vector<_step_*>& link)
 {
-	_step_* pStep = Current();
-	if (!pStep)
-		return nullptr;
-
-	pStep->Exec = false;
-	m_Step.Next();
+	m_iStepIndex++;
 	//INLOGVARN(32, "Index:%d", m_iStepIndex);
-	return Current();
+	return Current(link);
 }
 
 // 获得当前步骤操作码
-STEP_CODE GameStep::CurrentCode()
+STEP_CODE GameStep::CurrentCode(vector<_step_*>& link)
 {
-	_step_* pStep = Current();
+	_step_* pStep = Current(link);
 	return pStep ? pStep->OpCode : OP_UNKNOW;
 }
 
 // 获得下一步骤操作码
-STEP_CODE GameStep::NextCode()
+STEP_CODE GameStep::NextCode(vector<_step_*>& link)
 {
-	m_Step.Store();
-	_step_* pStep = Current();
-	m_Step.ReStore();
-
-	return pStep ? pStep->OpCode : OP_UNKNOW;
-}
-
-// 获取已执行了多久时间
-int GameStep::GetHasExecMs(_step_* step)
-{
-	if (!step)
-		step = Current();
-
-	return step ? getmillisecond() - step->ExecTime : 0;
-}
-
-// 设置执行状态
-void GameStep::SetExec(bool v, _step_* step)
-{
-	if (!step)
-		step = Current();
-	if (step) {
-		step->Exec = v;
-		step->ExecTime = v ? getmillisecond() : 0;
-	}	
+	return OP_UNKNOW;
 }
 
 // 初始化步骤
-bool GameStep::InitSteps(int flag)
+bool GameStep::InitSteps(const char* file)
 {
-	wchar_t path[255];
-	SHGetSpecialFolderPath(0, path, CSIDL_DESKTOPDIRECTORY, 0);
-	if (flag == 1) {
-		wcscat(path, L"\\MoYu\\魔域副本流程.txt");
-	}
-	else {
-		wcscat(path, L"\\MoYu\\魔域副本流程2.txt");
-	}
+	char path[255];
+	SHGetSpecialFolderPathA(0, path, CSIDL_DESKTOPDIRECTORY, 0);
 	
-	char* cpath = wchar2char(path);
-	printf("刷副本流程文件:%s\n", cpath);
-	OpenTextFile file;
-	if (!file.Open(cpath)) {
-		printf("找不到'魔域副本流程.txt'文件！！！");
+	char fb_file[255];
+	sprintf_s(fb_file, "%s\\MoYu\\%s", path, file);
+	
+	printf("刷副本流程文件:%s\n", fb_file);
+	OpenTextFile hfile;
+	if (!hfile.Open(fb_file)) {
+		printf("找不到'%s'文件！！！", fb_file);
 		return false;
 	}
+
+	// 初始化神殿去雷鸣步骤
+	InitGoLeiMingSteps();
 
 	int i = 0, index = 0;
 	int length = 0;
 	char data[128];
-	while ((length = file.GetLine(data, 128)) > -1) {
+	while ((length = hfile.GetLine(data, 128)) > -1) {
 		//printf("length:%d\n", length);
 		if (length == 0) {
 			continue;
 		}
 		char log[64];
 
-		//Explode arr("#", data);
-		//char* text = arr.GetValue(0);
-		//printf("%s", data);
-		Explode explode(" ", trim(data));
-		if (explode.GetCount() >= 2) {
-			char* cmd = explode.GetValue(0);
-			if (*cmd == '-') {
+		int ret = ParseStep(trim(data), m_Step);
+		if (ret == 0)
+			break;
+		if (ret > 0) {
+			if (ret == 2) {
 				index = i;
-				cmd++;
 			}
-			if (*cmd == '=') {
-				break;
-			}
-			try {
-				InitStep(step);
-				step.OpCode = TransFormOP(cmd);
-				switch (step.OpCode)
-				{
-				case OP_MOVE:
-					if (!TransFormPos(explode[1], step)) {
-						printf("GameStep::InitSteps.TransFormPos失败\n");
-						continue;
-					}
-					break;
-				case OP_NPC:
-					strcpy(step.NPCName, explode[1]);
-					break;
-				case OP_SELECT:
-					step.SelectNo = explode.GetValue2Int(1);
-					step.OpCount = explode.GetValue2Int(2);
-					if (step.OpCount == 0)
-						step.OpCount = 1;
-					break;
-				case OP_MAGIC:
-					TransFormMagic(explode, step);
-					break;
-				case OP_CRAZY:
-				case OP_CLEAR:
-					strcpy(step.Magic, explode[1]);
-					break;
-				case OP_PICKUP:
-				case OP_CHECKIN:
-					break;
-				case OP_USEITEM:
-					strcpy(step.Name, explode[1]);     // 物品名称
-					if (explode.GetCount() > 2) {
-						if (strstr(explode[2], ",")) { // 是否验证传送坐标
-							TransFormPos(explode[2], step);
-						}
-					}
-					break;
-				case OP_SELL:
-					break;
-				case OP_WAIT:
-					TransFormWait(explode, step);
-					break;
-				default:
-					continue;
-					break;
-				}
-
-				_step_* pStep = new _step_;
-				memcpy(pStep, &step, sizeof(_step_));
-				m_Step.Add(pStep);
-				i++;
-			}
-			catch (...) {
-				printf("读取流程错误:%s\n", data);
-			}
+			i++;
 		}
-		//memcpy(p->cmd, data, length + 1); // 保存原字符命令
 	}
-	printf("流程数量：%d\n", m_Step.Count());
+	printf("执行流程数量：%d\n", m_Step.size());
 	ResetStep(index);
 
-	file.Close();
+	hfile.Close();
 	return true;
+}
+
+// 初始化去雷鸣步骤
+int GameStep::InitGoLeiMingSteps()
+{
+	ParseStep("移动 66,60", m_GoLeiMingStep);
+	ParseStep("NPC 罗德·兰", m_GoLeiMingStep);
+	ParseStep("等待 2", m_GoLeiMingStep);
+	ParseStep("按钮 0x9F1", m_GoLeiMingStep);
+	ParseStep("等待 10", m_GoLeiMingStep);
+	ParseStep("NPC 娜塔莉", m_GoLeiMingStep);
+	ParseStep("选择 0x00", m_GoLeiMingStep);
+	ParseStep("等待 10", m_GoLeiMingStep);
+	printf("初始化从神殿传送到雷鸣大陆流程完成:%d\n", m_GoLeiMingStep.size());
+	return m_GoLeiMingStep.size();
+}
+
+// 解析步骤
+int GameStep::ParseStep(const char* data, vector<_step_*>& link)
+{
+	Explode explode(" ", data);
+	if (explode.GetCount() < 2)
+		return -1;
+	if (*data == '=')
+		return 0;
+
+	int result = 1;
+	char* cmd = explode.GetValue(0);
+	if (*cmd == '-') {
+		result = 2;
+		cmd++;
+	}
+
+	InitStep(step);
+	try {
+		step.OpCode = TransFormOP(cmd);
+		switch (step.OpCode)
+		{
+		case OP_MOVE:
+		case OP_MOVEFAR:
+			if (!TransFormPos(explode[1], step)) {
+				printf("GameStep::InitSteps.TransFormPos失败\n");
+				result = -1;
+			}
+			break;
+		case OP_NPC:
+			strcpy(step.NPCName, explode[1]);
+			break;
+		case OP_SELECT:
+			step.SelectNo = explode.GetValue2Int(1);
+			step.OpCount = explode.GetValue2Int(2);
+			if (step.OpCount == 0)
+				step.OpCount = 1;
+			break;
+		case OP_MAGIC:
+		case OP_MAGIC_PET:
+			TransFormMagic(explode, step);
+			break;
+		case OP_CRAZY:
+		case OP_CLEAR:
+			strcpy(step.Magic, explode[1]);
+			break;
+		case OP_PICKUP:
+		case OP_CHECKIN:
+			break;
+		case OP_USEITEM:
+			strcpy(step.Name, explode[1]);     // 物品名称
+			if (explode.GetCount() > 2) {
+				if (strstr(explode[2], ",")) { // 是否验证传送坐标
+					TransFormPos(explode[2], step);
+				}
+				if (explode.GetCount() > 3) {
+					step.Extra[0] = explode.GetValue2Int(3);
+				}
+			}
+			break;
+		case OP_DROPITEM:
+			strcpy(step.Name, explode[1]);     // 物品名称
+			if (explode.GetCount() > 2) {
+				step.Extra[0] = explode.GetValue2Int(2);
+			}
+			break;
+		case OP_SELL:
+			break;
+		case OP_BUTTON:
+			step.ButtonId = explode.GetValue2Int(1);
+			break;
+		case OP_WAIT:
+			TransFormWait(explode, step);
+			break;
+		default:
+			result = -1;
+			break;
+		}
+	}
+	catch (...) {
+		result = -1;
+		printf("读取流程错误:%s\n", data);
+	}
+	if (result) {
+		_step_* pStep = new _step_;
+		memcpy(pStep, &step, sizeof(_step_));
+		link.push_back(pStep);
+	}
+	return result;
 }
 
 // 转成实际指令
@@ -194,6 +207,8 @@ STEP_CODE GameStep::TransFormOP(const char* data)
 	// 以下为建筑类型
 	if (strcmp(data, "移动") == 0)
 		return OP_MOVE;
+	if (strcmp(data, "传送") == 0)
+		return OP_MOVEFAR;
 	if (strcmp(data, "NPC") == 0)
 		return OP_NPC;
 	if (strcmp(data, "选择") == 0)
@@ -214,10 +229,14 @@ STEP_CODE GameStep::TransFormOP(const char* data)
 		return OP_CHECKIN;
 	if (strcmp(data, "使用") == 0)
 		return OP_USEITEM;
+	if (strcmp(data, "丢物") == 0)
+		return OP_DROPITEM;
 	if (strcmp(data, "售卖") == 0)
 		return OP_SELL;
 	if (strcmp(data, "出售") == 0)
 		return OP_SELL;
+	if (strcmp(data, "按钮") == 0)
+		return OP_BUTTON;
 	if (strcmp(data, "等待") == 0)
 		return OP_WAIT;
 }
@@ -305,5 +324,5 @@ void GameStep::ResetStep(int index)
 	if (index > 0) {
 		m_iStepStartIndex = index;
 	}
-	m_Step.Reset(m_iStepStartIndex);
+	m_iStepIndex = index;
 }
